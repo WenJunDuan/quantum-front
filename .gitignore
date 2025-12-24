@@ -16,7 +16,7 @@ lerna-debug.log*
 .vite/
 src/types/auto-imports.d.ts
 src/types/components.d.ts
-
+project_document/
 node_modules/
 dist
 dist-ssr

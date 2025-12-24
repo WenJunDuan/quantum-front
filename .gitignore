@@ -1,0 +1,35 @@
+# {{RIPER-10 Action}}
+# Role: LD | Task_ID: #restore | Time: 2025-12-24T10:01:59+08:00
+# Principle: Keep the repo clean; ignore generated artifacts.
+# Taste: Ignore only what is reproducible.
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+.eslintcache
+.vite/
+src/types/auto-imports.d.ts
+src/types/components.d.ts
+
+node_modules/
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

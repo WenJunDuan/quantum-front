@@ -1,0 +1,130 @@
+// {{RIPER-10 Action}}
+// Role: LD | Task_ID: #restore | Time: 2025-12-24T10:01:59+08:00
+// Principle: Don't break userspace; restore behavior via config, not hacks.
+// Taste: Keep build/dev knobs explicit and predictable.
+
+import tailwindcss from "@tailwindcss/vite"
+import vue from "@vitejs/plugin-vue"
+import { fileURLToPath, URL } from "node:url"
+import AutoImport from "unplugin-auto-import/vite"
+import Components from "unplugin-vue-components/vite"
+import { defineConfig, loadEnv } from "vite"
+import viteCompression from "vite-plugin-compression"
+
+// https://vite.dev/config/
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "")
+
+  const apiBaseUrl = env.VITE_API_BASE_URL
+  const inferredProxyTarget =
+    apiBaseUrl?.startsWith("http://") || apiBaseUrl?.startsWith("https://") ? apiBaseUrl : undefined
+  const apiProxyTarget = env.VITE_API_PROXY_TARGET ?? inferredProxyTarget ?? "http://localhost:8080"
+
+  return {
+    esbuild: {
+      drop: mode === "production" ? ["console", "debugger"] : [],
+    },
+
+    plugins: [
+      vue(),
+
+      AutoImport({
+        dts: "src/types/auto-imports.d.ts",
+        imports: ["vue", "vue-router", "pinia", "@vueuse/core"],
+        dirs: ["src/composables", "src/hooks", "src/utils"],
+        vueTemplate: true,
+      }),
+
+      Components({
+        dts: "src/types/components.d.ts",
+        dirs: ["src/components", "src/components/ui"],
+        deep: true,
+      }),
+
+      tailwindcss(),
+
+      viteCompression({
+        verbose: true,
+        disable: mode !== "production",
+        threshold: 10_240,
+        algorithm: "gzip",
+        ext: ".gz",
+      }),
+    ],
+
+    resolve: {
+      alias: {
+        "@": fileURLToPath(new URL("src", import.meta.url)),
+      },
+    },
+
+    server: {
+      host: true,
+      port: 3000,
+      open: true,
+      cors: true,
+      proxy: {
+        "/api": {
+          target: apiProxyTarget,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, ""),
+        },
+      },
+    },
+
+    build: {
+      target: "esnext",
+      outDir: "dist",
+      sourcemap: false,
+      reportCompressedSize: false,
+      chunkSizeWarningLimit: 2000,
+      rollupOptions: {
+        output: {
+          chunkFileNames: "static/js/[name]-[hash].js",
+          entryFileNames: "static/js/[name]-[hash].js",
+          assetFileNames: "static/[ext]/[name]-[hash].[ext]",
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return
+
+            if (id.includes("vue") || id.includes("pinia") || id.includes("vue-router")) {
+              return "vendor-vue"
+            }
+
+            if (
+              id.includes("reka-ui") ||
+              id.includes("class-variance-authority") ||
+              id.includes("clsx") ||
+              id.includes("tailwind-merge") ||
+              id.includes("@iconify")
+            ) {
+              return "vendor-ui"
+            }
+
+            return "vendor"
+          },
+        },
+      },
+      minify: "esbuild",
+    },
+
+    optimizeDeps: {
+      include: [
+        "@tanstack/vue-query",
+        "@vueuse/core",
+        "axios",
+        "class-variance-authority",
+        "clsx",
+        "dayjs",
+        "decimal.js",
+        "pinia",
+        "pinia-plugin-persistedstate",
+        "query-string",
+        "reka-ui",
+        "tailwind-merge",
+        "vue",
+        "vue-router",
+        "zod",
+      ],
+    },
+  }
+})

@@ -1,2 +1,0 @@
-# quantum-front
-quantum-front

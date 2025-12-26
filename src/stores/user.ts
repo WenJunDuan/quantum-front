@@ -10,22 +10,39 @@ export const useUserStore = defineStore(
   "user",
   () => {
     const accessToken = ref<string | null>(null)
+    const refreshToken = ref<string | null>(null)
     const isAuthed = computed(() => Boolean(accessToken.value))
 
     function setToken(token: string | null) {
       accessToken.value = token
     }
 
-    function logout() {
-      accessToken.value = null
+    function setRefreshToken(token: string | null) {
+      refreshToken.value = token
     }
 
-    return { accessToken, isAuthed, logout, setToken }
+    function setTokens(tokens: { accessToken: string; refreshToken?: string | null } | null) {
+      if (!tokens) {
+        accessToken.value = null
+        refreshToken.value = null
+        return
+      }
+
+      accessToken.value = tokens.accessToken
+      refreshToken.value = tokens.refreshToken ?? null
+    }
+
+    function logout() {
+      accessToken.value = null
+      refreshToken.value = null
+    }
+
+    return { accessToken, isAuthed, logout, refreshToken, setRefreshToken, setToken, setTokens }
   },
   {
     persist: {
       key: "quantum:user",
-      paths: ["accessToken"],
+      paths: ["accessToken", "refreshToken"],
     },
   },
 )

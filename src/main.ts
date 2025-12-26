@@ -8,10 +8,11 @@ import { createPinia } from "pinia"
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate"
 import { createApp } from "vue"
 
-import App from "./App.vue"
-import "./style.css"
+import { useAppColorMode } from "@/composables/useAppColorMode"
 import "@/lib/iconify"
 
+import App from "./App.vue"
+import "./style.css"
 import router from "./router"
 
 const pinia = createPinia()
@@ -25,5 +26,7 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+useAppColorMode()
 
 createApp(App).use(pinia).use(router).use(VueQueryPlugin, { queryClient }).mount("#app")

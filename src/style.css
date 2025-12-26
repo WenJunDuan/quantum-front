@@ -41,8 +41,8 @@
 
 @layer base {
   :root {
-    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-    --font-display: "Nova Square", ui-sans-serif, system-ui, sans-serif;
+    --font-sans: system-ui, sans-serif;
+    --font-display: system-ui, sans-serif;
 
     --radius: 0.625rem;
     --background: oklch(1 0 0);
@@ -127,6 +127,6 @@
   h4,
   h5,
   h6 {
-    font-family: var(--font-display);
+    font-family: inherit;
   }
 }

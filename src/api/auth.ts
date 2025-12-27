@@ -3,21 +3,15 @@
 // Principle: Keep API functions thin and typed.
 // Taste: Parse server data with Zod at the boundary.
 
-import { z } from "zod"
-
+import {
+  CaptchaResultSchema,
+  LoginResponseSchema,
+  UserInfoSchema,
+  type CaptchaResult,
+  type LoginResponse,
+  type UserInfo,
+} from "@/schemas/auth"
 import request, { type RequestConfig } from "@/utils/request"
-
-export interface CaptchaResult {
-  key: string
-  image: string
-  length: number
-}
-
-const CaptchaResultSchema = z.object({
-  key: z.string().min(1),
-  image: z.string().min(1),
-  length: z.number().int().positive(),
-})
 
 export async function createCaptcha(config?: RequestConfig): Promise<CaptchaResult> {
   const data = await request.get<unknown>("/auth/captcha", config)
@@ -31,15 +25,6 @@ export interface LoginPayload {
   captchaCode: string
   rememberMe?: boolean
 }
-
-const LoginResponseSchema = z
-  .object({
-    accessToken: z.string().min(1),
-    refreshToken: z.string().min(1).optional(),
-  })
-  .passthrough()
-
-export type LoginResponse = z.infer<typeof LoginResponseSchema>
 
 export async function login(payload: LoginPayload, config?: RequestConfig): Promise<LoginResponse> {
   const body = {
@@ -60,4 +45,9 @@ export async function login(payload: LoginPayload, config?: RequestConfig): Prom
   })
 
   return LoginResponseSchema.parse(data)
+}
+
+export async function getUserInfo(config?: RequestConfig): Promise<UserInfo> {
+  const data = await request.get<unknown>("/auth/info", config)
+  return UserInfoSchema.parse(data)
 }

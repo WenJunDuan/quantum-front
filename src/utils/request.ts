@@ -16,7 +16,7 @@ import {
   isSuccessCode,
   isUnauthorizedCode,
 } from "@/constants/result-code"
-import router from "@/router"
+import { getAppRouter } from "@/router/navigation"
 import { useErrorStore } from "@/stores/error"
 import { useNotifyStore } from "@/stores/notify"
 import { useUserStore } from "@/stores/user"
@@ -25,10 +25,13 @@ export interface RequestMeta {
   skipErrorToast?: boolean
   skipErrorRedirect?: boolean
   skipAuthRedirect?: boolean
+  skipTokenRefresh?: boolean
 }
 
 export type RequestConfig = AxiosRequestConfig & {
   meta?: RequestMeta
+  __pendingKey?: string
+  __retryCount?: number
 }
 
 export class ApiError<T = unknown> extends Error {
@@ -72,6 +75,50 @@ function safeUserStore() {
   if (!getActivePinia()) return null
   try {
     return useUserStore()
+  } catch {
+    return null
+  }
+}
+
+function persistedAccessToken() {
+  try {
+    if (!("localStorage" in globalThis)) return null
+    const storage = (globalThis as unknown as { localStorage?: Storage }).localStorage
+    if (!storage) return null
+
+    const raw = storage.getItem("quantum:user")
+    if (!raw) return null
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!isRecord(parsed)) return null
+
+    const token = parsed.accessToken
+    if (typeof token !== "string") return null
+
+    const trimmed = token.trim()
+    return trimmed || null
+  } catch {
+    return null
+  }
+}
+
+function persistedRefreshToken() {
+  try {
+    if (!("localStorage" in globalThis)) return null
+    const storage = (globalThis as unknown as { localStorage?: Storage }).localStorage
+    if (!storage) return null
+
+    const raw = storage.getItem("quantum:user")
+    if (!raw) return null
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!isRecord(parsed)) return null
+
+    const token = parsed.refreshToken
+    if (typeof token !== "string") return null
+
+    const trimmed = token.trim()
+    return trimmed || null
   } catch {
     return null
   }
@@ -124,12 +171,12 @@ function attachAbort(config: RequestConfig) {
   pending.set(key, controller)
 
   config.signal = controller.signal
-  ;(config as RequestConfig & { __pendingKey?: string }).__pendingKey = key
+  config.__pendingKey = key
   return config
 }
 
 function detachAbort(config?: RequestConfig) {
-  const key = (config as (RequestConfig & { __pendingKey?: string }) | undefined)?.__pendingKey
+  const key = config?.__pendingKey
   if (!key) return
   pending.delete(key)
 }
@@ -148,7 +195,8 @@ function errorRouteNameByCode(code: number) {
 function notifyApiError(error: ApiError, config?: RequestConfig) {
   if (config?.meta?.skipErrorToast) return
 
-  const currentName = router.currentRoute.value.name
+  const router = getAppRouter()
+  const currentName = router?.currentRoute.value.name
   if (typeof currentName === "string" && currentName.startsWith("error-")) return
 
   const ttlMs = isFatalRedirectCode(error.code) ? 8000 : 6000
@@ -157,6 +205,9 @@ function notifyApiError(error: ApiError, config?: RequestConfig) {
 
 function redirectToLogin(config?: RequestConfig) {
   if (config?.meta?.skipAuthRedirect) return
+
+  const router = getAppRouter()
+  if (!router) return
 
   const current = router.currentRoute.value
   if (current.name === "login") return
@@ -173,6 +224,9 @@ function redirectToErrorPage(error: ApiError, config?: RequestConfig) {
   const routeName = errorRouteNameByCode(error.code)
   if (!routeName) return
 
+  const router = getAppRouter()
+  if (!router) return
+
   if (router.currentRoute.value.name === routeName) return
 
   safeErrorStore()?.setError({
@@ -183,6 +237,174 @@ function redirectToErrorPage(error: ApiError, config?: RequestConfig) {
   })
 
   router.replace({ name: routeName })
+}
+
+function setAuthHeader(config: AxiosRequestConfig, authHeader: string) {
+  const headers = config.headers
+
+  if (!headers) {
+    config.headers = { Authorization: authHeader }
+    return
+  }
+
+  const maybeHeaders = headers as unknown as {
+    set?: (headerName: string, value: string) => void
+    Authorization?: string
+    common?: Record<string, unknown>
+    delete?: Record<string, unknown>
+    get?: Record<string, unknown>
+    head?: Record<string, unknown>
+    options?: Record<string, unknown>
+    patch?: Record<string, unknown>
+    post?: Record<string, unknown>
+    put?: Record<string, unknown>
+  }
+
+  if (typeof maybeHeaders.set === "function") {
+    maybeHeaders.set("Authorization", authHeader)
+    return
+  }
+
+  maybeHeaders.Authorization = authHeader
+
+  const method = typeof config.method === "string" ? config.method.toLowerCase() : null
+  const buckets = ["common", method].filter((value): value is string => typeof value === "string")
+
+  for (const bucket of buckets) {
+    const group = (maybeHeaders as unknown as Record<string, unknown>)[bucket]
+    if (isRecord(group)) {
+      ;(group as Record<string, unknown>).Authorization = authHeader
+    }
+  }
+}
+
+function normalizeBearerAuthorization(token: string) {
+  const trimmed = token.trim()
+  if (!trimmed) return null
+
+  if (/^bearer\b/i.test(trimmed)) {
+    const withoutPrefix = trimmed.replace(/^bearer\b/i, "").trimStart()
+    if (!withoutPrefix) return null
+    return `Bearer ${withoutPrefix}`
+  }
+
+  return `Bearer ${trimmed}`
+}
+
+function shouldSkipTokenRefresh(config?: RequestConfig) {
+  if (config?.meta?.skipTokenRefresh) return true
+
+  const url = config?.url
+  if (typeof url !== "string") return false
+
+  return (
+    url.includes("/auth/login") || url.includes("/auth/captcha") || url.includes("/auth/refresh")
+  )
+}
+
+let isRefreshing = false
+let pendingRequests: {
+  resolve: (token: string) => void
+  reject: (error: Error) => void
+}[] = []
+
+interface TokenResponse {
+  accessToken: string
+  refreshToken?: string
+}
+
+function normalizeApiBaseUrl(baseUrl: string) {
+  return baseUrl.replace(/\/+$/, "")
+}
+
+function toTokenResponse(value: unknown): TokenResponse | null {
+  if (!isRecord(value)) return null
+
+  const accessToken = value.accessToken
+  if (typeof accessToken !== "string" || !accessToken.trim()) return null
+
+  const refreshToken =
+    typeof value.refreshToken === "string" && value.refreshToken.trim()
+      ? value.refreshToken
+      : undefined
+
+  return { accessToken, refreshToken }
+}
+
+function persistTokens(tokens: TokenResponse) {
+  try {
+    if (!("localStorage" in globalThis)) return
+    const storage = (globalThis as unknown as { localStorage?: Storage }).localStorage
+    if (!storage) return
+
+    const raw = storage.getItem("quantum:user")
+    if (!raw) return
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!isRecord(parsed)) return
+    ;(parsed as Record<string, unknown>).accessToken = tokens.accessToken
+    if (tokens.refreshToken) {
+      ;(parsed as Record<string, unknown>).refreshToken = tokens.refreshToken
+    }
+
+    storage.setItem("quantum:user", JSON.stringify(parsed))
+  } catch {
+    return
+  }
+}
+
+async function refreshAccessToken(): Promise<TokenResponse | null> {
+  const refreshToken = safeUserStore()?.refreshToken ?? persistedRefreshToken()
+  if (!refreshToken) return null
+
+  try {
+    const response = await axios.post<Result<unknown>>(
+      `${normalizeApiBaseUrl(appConfig.apiBaseUrl)}/auth/refresh`,
+      null,
+      {
+        params: { refreshToken },
+        timeout: 10_000,
+      },
+    )
+
+    const result = response.data
+    if (!isSuccessCode(result.code) || !result.data) {
+      return null
+    }
+
+    const tokens = toTokenResponse(result.data)
+    if (!tokens) return null
+
+    const userStore = safeUserStore()
+    if (userStore) {
+      userStore.setToken(tokens.accessToken)
+      if (tokens.refreshToken) userStore.setRefreshToken(tokens.refreshToken)
+    } else {
+      persistTokens(tokens)
+    }
+
+    return tokens
+  } catch {
+    return null
+  }
+}
+
+function handleUnauthorized(config?: RequestConfig): Promise<never> {
+  const error = new ApiError({
+    code: ResultCode.UNAUTHORIZED,
+    message: "登录已过期，请重新登录",
+    timestamp: Date.now(),
+  })
+
+  for (const { reject } of pendingRequests) {
+    reject(error)
+  }
+  pendingRequests = []
+
+  safeUserStore()?.logout()
+  redirectToLogin(config)
+
+  return Promise.reject(error)
 }
 
 class RequestClient {
@@ -204,15 +426,18 @@ class RequestClient {
       },
     })
 
+    this.setupRequestInterceptor()
+    this.setupResponseInterceptor()
+  }
+
+  private setupRequestInterceptor(): void {
     this.instance.interceptors.request.use(
       (config) => {
-        const token = safeUserStore()?.accessToken
+        const token = safeUserStore()?.accessToken ?? persistedAccessToken()
 
         if (token) {
-          config.headers = config.headers ?? {}
-          const trimmed = token.trim()
-          const authHeader = /^bearer\s+/i.test(trimmed) ? trimmed : `Bearer ${trimmed}`
-          config.headers.Authorization = authHeader
+          const authHeader = normalizeBearerAuthorization(token)
+          if (authHeader) setAuthHeader(config, authHeader)
         }
 
         return attachAbort(config as RequestConfig)
@@ -222,7 +447,9 @@ class RequestClient {
         return Promise.reject(errorObject)
       },
     )
+  }
 
+  private setupResponseInterceptor(): void {
     this.instance.interceptors.response.use(
       (response) => {
         detachAbort(response.config as RequestConfig)
@@ -233,8 +460,15 @@ class RequestClient {
         if (isSuccessCode(payload.code)) return payload.data
 
         if (isUnauthorizedCode(payload.code)) {
-          safeUserStore()?.logout()
-          redirectToLogin(response.config as RequestConfig)
+          const config = response.config as RequestConfig
+
+          if (shouldSkipTokenRefresh(config)) {
+            const apiError = new ApiError(payload)
+            notifyApiError(apiError, config)
+            return Promise.reject(apiError)
+          }
+
+          return this.handleTokenRefresh(config)
         }
 
         const apiError = new ApiError(payload)
@@ -247,12 +481,23 @@ class RequestClient {
       (error: AxiosError) => {
         detachAbort(error.config as RequestConfig)
 
+        if (axios.isCancel(error)) {
+          return Promise.reject(error)
+        }
+
         const payload: unknown = error.response?.data
 
         if (isResult(payload)) {
           if (isUnauthorizedCode(payload.code)) {
-            safeUserStore()?.logout()
-            redirectToLogin(error.config as RequestConfig)
+            const config = error.config as RequestConfig | undefined
+
+            if (shouldSkipTokenRefresh(config)) {
+              const apiError = new ApiError(payload)
+              notifyApiError(apiError, config)
+              return Promise.reject(apiError)
+            }
+
+            return this.handleTokenRefresh(config)
           }
 
           const apiError = new ApiError(payload)
@@ -266,8 +511,11 @@ class RequestClient {
         const status = error.response?.status
         if (typeof status === "number" && status > 0) {
           if (status === ResultCode.UNAUTHORIZED) {
-            safeUserStore()?.logout()
-            redirectToLogin(error.config as RequestConfig)
+            const config = error.config as RequestConfig | undefined
+            if (shouldSkipTokenRefresh(config)) {
+              return handleUnauthorized(config)
+            }
+            return this.handleTokenRefresh(config)
           }
 
           const apiError = new ApiError({
@@ -291,6 +539,53 @@ class RequestClient {
     )
   }
 
+  private async handleTokenRefresh<T>(config?: RequestConfig): Promise<T> {
+    if (!config) return handleUnauthorized()
+
+    const retryCount = config.__retryCount ?? 0
+    if (retryCount >= 1) {
+      return handleUnauthorized(config)
+    }
+
+    if (isRefreshing) {
+      return new Promise<T>((resolve, reject) => {
+        pendingRequests.push({
+          resolve: (newToken: string) => {
+            config.__retryCount = retryCount + 1
+            const authHeader = normalizeBearerAuthorization(newToken)
+            if (authHeader) setAuthHeader(config, authHeader)
+            delete config.__pendingKey
+            this.instance.request<unknown, T>(config).then(resolve).catch(reject)
+          },
+          reject,
+        })
+      })
+    }
+
+    isRefreshing = true
+
+    try {
+      const tokens = await refreshAccessToken()
+
+      if (!tokens) {
+        return handleUnauthorized(config)
+      }
+
+      for (const { resolve } of pendingRequests) resolve(tokens.accessToken)
+      pendingRequests = []
+
+      config.__retryCount = retryCount + 1
+      const authHeader = normalizeBearerAuthorization(tokens.accessToken)
+      if (authHeader) setAuthHeader(config, authHeader)
+      delete config.__pendingKey
+      return this.instance.request<unknown, T>(config)
+    } catch {
+      return handleUnauthorized(config)
+    } finally {
+      isRefreshing = false
+    }
+  }
+
   request<T = unknown>(config: RequestConfig): Promise<T> {
     return this.instance.request<unknown, T>(config)
   }
@@ -305,6 +600,10 @@ class RequestClient {
 
   put<T = unknown>(url: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.instance.put(url, data, config)
+  }
+
+  patch<T = unknown>(url: string, data?: unknown, config?: RequestConfig): Promise<T> {
+    return this.instance.patch(url, data, config)
   }
 
   delete<T = unknown>(url: string, config?: RequestConfig): Promise<T> {

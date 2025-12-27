@@ -9,6 +9,7 @@ import piniaPluginPersistedstate from "pinia-plugin-persistedstate"
 import { createApp } from "vue"
 
 import { useAppColorMode } from "@/composables/useAppColorMode"
+import { registerPermissionDirectives } from "@/directives/permission"
 import "@/lib/iconify"
 
 import App from "./App.vue"
@@ -29,4 +30,7 @@ const queryClient = new QueryClient({
 
 useAppColorMode()
 
-createApp(App).use(pinia).use(router).use(VueQueryPlugin, { queryClient }).mount("#app")
+const app = createApp(App)
+app.use(pinia).use(router).use(VueQueryPlugin, { queryClient })
+registerPermissionDirectives(app)
+app.mount("#app")

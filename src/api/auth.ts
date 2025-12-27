@@ -1,7 +1,5 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #login | Time: 2025-12-26T00:00:00+08:00
-// Principle: Keep API functions thin and typed.
-// Taste: Parse server data with Zod at the boundary.
+// src/api/auth.ts
+// 认证相关 API
 
 import {
   CaptchaResultSchema,
@@ -11,13 +9,19 @@ import {
   type LoginResponse,
   type UserInfo,
 } from "@/schemas/auth"
-import request, { type RequestConfig } from "@/utils/request"
+import request from "@/utils/request"
 
-export async function createCaptcha(config?: RequestConfig): Promise<CaptchaResult> {
-  const data = await request.get<unknown>("/auth/captcha", config)
+/**
+ * 获取验证码
+ */
+export async function createCaptcha(): Promise<CaptchaResult> {
+  const data = await request.get<unknown>("/auth/captcha", { meta: { skipAuth: true } })
   return CaptchaResultSchema.parse(data)
 }
 
+/**
+ * 用户登录
+ */
 export interface LoginPayload {
   username: string
   password: string
@@ -26,28 +30,68 @@ export interface LoginPayload {
   rememberMe?: boolean
 }
 
-export async function login(payload: LoginPayload, config?: RequestConfig): Promise<LoginResponse> {
-  const body = {
-    username: payload.username,
-    password: payload.password,
-    captchaKey: payload.captchaKey,
-    captchaCode: payload.captchaCode,
-    captcha: payload.captchaCode,
-    key: payload.captchaKey,
-    code: payload.captchaCode,
-    rememberMe: payload.rememberMe,
-    rememberPassword: payload.rememberMe,
+function normalizeLoginResponse(data: unknown): unknown {
+  if (typeof data !== "object" || data === null) return data
+  const record = data as Record<string, unknown>
+
+  const accessToken =
+    typeof record.accessToken === "string"
+      ? record.accessToken
+      : typeof record.access_token === "string"
+        ? record.access_token
+        : null
+
+  if (!accessToken) return data
+
+  const refreshToken =
+    typeof record.refreshToken === "string"
+      ? record.refreshToken
+      : typeof record.refresh_token === "string"
+        ? record.refresh_token
+        : undefined
+
+  return {
+    ...record,
+    accessToken,
+    ...(refreshToken ? { refreshToken } : {}),
   }
-
-  const data = await request.post<unknown>("/auth/login", body, {
-    ...config,
-    meta: { ...config?.meta, skipErrorRedirect: true },
-  })
-
-  return LoginResponseSchema.parse(data)
 }
 
-export async function getUserInfo(config?: RequestConfig): Promise<UserInfo> {
-  const data = await request.get<unknown>("/auth/info", config)
+export async function login(payload: LoginPayload): Promise<LoginResponse> {
+  const data = await request.post<unknown>(
+    "/auth/login",
+    {
+      username: payload.username,
+      password: payload.password,
+      captchaKey: payload.captchaKey,
+      captchaCode: payload.captchaCode,
+      rememberMe: payload.rememberMe ?? false,
+    },
+    {
+      meta: { skipAuth: true, skipErrorToast: false, skipAuthRedirect: true },
+    },
+  )
+
+  return LoginResponseSchema.parse(normalizeLoginResponse(data))
+}
+
+/**
+ * 获取当前用户信息
+ */
+export async function getUserInfo(): Promise<UserInfo> {
+  const data = await request.get<unknown>("/auth/info")
   return UserInfoSchema.parse(data)
+}
+
+/**
+ * 用户登出
+ */
+export async function logout(): Promise<void> {
+  try {
+    await request.post("/auth/logout", null, {
+      meta: { skipErrorToast: true, skipAuthRedirect: true },
+    })
+  } catch {
+    // 忽略登出接口错误
+  }
 }

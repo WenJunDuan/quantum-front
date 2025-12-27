@@ -67,6 +67,14 @@ export default defineConfig(({ mode }) => {
         "/api": {
           target: apiProxyTarget,
           changeOrigin: true,
+          configure(proxy) {
+            proxy.on("proxyReq", (proxyReq, req) => {
+              const auth = req.headers?.authorization
+              if (typeof auth === "string" && auth.trim()) {
+                proxyReq.setHeader("authorization", auth)
+              }
+            })
+          },
           rewrite: (path) => path.replace(/^\/api/, ""),
         },
       },

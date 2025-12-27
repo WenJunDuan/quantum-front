@@ -1,5 +1,5 @@
 // {{RIPER-10 Action}}
-// Role: LD | Task_ID: #rbac | Time: 2025-12-27T00:00:00+08:00
+// Role: LD | Task_ID: #fix-dynamic | Time: 2025-12-27T00:00:00+08:00
 // Principle: Router records are data; backend drives visibility.
 // Taste: Build route records from RouterVO with safe fallbacks.
 
@@ -39,14 +39,37 @@ function joinFullPath(parentFullPath: string, segment: string) {
   return `${parent.startsWith("/") ? parent : `/${parent}`}/${seg}`
 }
 
-function toSafeSlug(input: string) {
-  const slug = input
-    .trim()
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/g, "-")
+function hasNonAscii(input: string): boolean {
+  for (const char of input) {
+    const code = char.codePointAt(0)
+    if (code !== undefined && code > 0x7f) return true
+  }
+  return false
+}
+
+/**
+ * 生成安全的路由名称 slug
+ * 支持中文字符，使用 URL 编码处理
+ */
+function toSafeSlug(input: string): string {
+  const trimmed = input.trim()
+  if (!trimmed) return "menu"
+
+  // 移除特殊字符，保留中文、英文、数字、连字符
+  const cleaned = trimmed
+    .replaceAll(/[\s/\\:*?"<>|]+/g, "-") // 空格和特殊字符替换为连字符
     .replace(/^-+/, "")
     .replace(/-+$/, "")
-  return slug
+    .replaceAll(/-+/g, "-") // 多个连字符合并
+
+  if (!cleaned) return "menu"
+
+  // 如果包含非 ASCII 字符（如中文），进行编码
+  if (hasNonAscii(cleaned)) {
+    return encodeURIComponent(cleaned)
+  }
+
+  return cleaned.toLowerCase()
 }
 
 function uniqueName(base: string, used: Set<string>) {
@@ -84,6 +107,7 @@ function resolveViewLoader(component?: string) {
   const key = normalizeComponentKey(component)
   if (!key) return null
 
+  // 跳过布局组件
   if (key === "layout" || key === "parentview" || key === "routerview") return null
 
   const direct = viewModuleMap.get(key)
@@ -104,7 +128,7 @@ function toRouteRecord(
   const segment = normalizePathSegment(item.path)
   const fullPath = joinFullPath(parentFullPath, segment)
 
-  const title = item.meta?.title
+  const title = item.meta?.title ?? item.name ?? item.path
   const nameBase = item.name?.trim()
     ? `menu-${toSafeSlug(item.name)}`
     : `menu-${toSafeSlug(fullPath)}`

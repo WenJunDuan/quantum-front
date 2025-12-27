@@ -1,5 +1,5 @@
 // {{RIPER-10 Action}}
-// Role: LD | Task_ID: #restore | Time: 2025-12-24T10:01:59+08:00
+// Role: LD | Task_ID: #fix-auth-hook | Time: 2025-12-27T00:00:00+08:00
 // Principle: Keep domain access patterns consistent.
 // Taste: A tiny composable that forwards to the store—no extra magic.
 
@@ -9,12 +9,26 @@ import { useUserStore } from "@/stores/user"
 
 export function useAuth() {
   const userStore = useUserStore()
-  const { accessToken, isAuthed } = storeToRefs(userStore)
+  const { accessToken, refreshToken, isAuthed, profile, roles, permissions } =
+    storeToRefs(userStore)
 
   return {
+    // State
     accessToken,
+    refreshToken,
     isAuthed,
-    setToken: userStore.setToken,
+    profile,
+    roles,
+    permissions,
+
+    // Actions
+    setTokens: userStore.setTokens,
     logout: userStore.logout,
+
+    // Permission helpers
+    hasRole: userStore.hasRole,
+    hasAnyRole: userStore.hasAnyRole,
+    hasPermission: userStore.hasPermission,
+    hasAnyPermission: userStore.hasAnyPermission,
   }
 }

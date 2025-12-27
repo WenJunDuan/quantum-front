@@ -1,5 +1,5 @@
 // {{RIPER-10 Action}}
-// Role: LD | Task_ID: #restore | Time: 2025-12-24T10:01:59+08:00
+// Role: LD | Task_ID: #fix-router | Time: 2025-12-27T00:00:00+08:00
 // Principle: Routes are part of the public API surface.
 // Taste: Keep routing small, lazy-loaded, and predictable.
 
@@ -12,6 +12,7 @@ import { registerDynamicRoutes, resetDynamicRoutes } from "@/router/dynamic"
 import { setAppRouter } from "@/router/navigation"
 import { useNotifyStore } from "@/stores/notify"
 import { useUserStore } from "@/stores/user"
+import { tokenManager } from "@/utils/token"
 
 function safeUserStore() {
   if (!getActivePinia()) return null
@@ -91,10 +92,12 @@ router.beforeEach(async (to) => {
   const userStore = safeUserStore()
   const notify = safeNotifyStore()
 
-  const token = userStore?.accessToken
+  // ========== 未登录处理 ==========
+  userStore?.syncTokensFromStorage()
+  const token = tokenManager.getAccessToken()
   if (!token) {
     resetDynamicRoutes(router)
-    userStore?.clearUserInfo()
+    userStore?.logout()
 
     if (to.meta.requiresAuth === true) {
       return {
@@ -106,25 +109,38 @@ router.beforeEach(async (to) => {
     return true
   }
 
-  if (to.name === "login") return { name: "home" }
+  // ========== 已登录访问登录页，重定向到首页 ==========
+  if (to.name === "login") {
+    return { name: "home" }
+  }
 
   if (!userStore) return true
 
+  // ========== 加载用户信息 ==========
   if (!userStore.isUserInfoLoaded) {
     try {
       const info = await getUserInfo()
       userStore.setUserInfo(info)
-    } catch {
-      return false
+    } catch (error) {
+      // Token 可能已失效，清理并跳转登录
+      console.error("[Router] Failed to get user info:", error)
+      userStore.logout()
+      notify?.error("获取用户信息失败，请重新登录")
+      return {
+        name: "login",
+        query: { redirect: to.fullPath },
+      }
     }
   }
 
+  // ========== 注册动态路由 ==========
   if (!userStore.areDynamicRoutesReady) {
     registerDynamicRoutes(router, "root", userStore.routers)
     userStore.markDynamicRoutesReady()
     return { path: to.fullPath, replace: true }
   }
 
+  // ========== 角色权限检查 ==========
   const requiredRoles = Array.isArray(to.meta.roles)
     ? to.meta.roles.filter((value) => typeof value === "string")
     : []
@@ -133,6 +149,7 @@ router.beforeEach(async (to) => {
     return { name: "error-404" }
   }
 
+  // ========== 权限标识检查 ==========
   const requiredPermission = typeof to.meta.permission === "string" ? to.meta.permission.trim() : ""
   if (requiredPermission && !userStore.hasPermission(requiredPermission)) {
     notify?.error("无权限访问")

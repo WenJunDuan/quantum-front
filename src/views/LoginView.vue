@@ -1,5 +1,5 @@
 <!-- {{RIPER-10 Action}}
-Role: LD | Task_ID: #login | Time: 2025-12-26T00:00:00+08:00
+Role: LD | Task_ID: #fix-login | Time: 2025-12-27T00:00:00+08:00
 Principle: Keep the first page focused and predictable.
 Taste: Simple, clean shadcn-vue-style login form.
 -->
@@ -35,6 +35,8 @@ const captchaKey = ref("")
 const captchaImageUrl = ref<string | null>(null)
 const captchaLength = ref<number | null>(null)
 const isCaptchaLoading = ref(false)
+const captchaRetryCount = ref(0)
+const maxCaptchaRetries = 5
 
 function normalizeCaptchaImageSrc(image: string) {
   if (image.startsWith("data:")) return image
@@ -43,6 +45,13 @@ function normalizeCaptchaImageSrc(image: string) {
 
 async function fetchCaptcha() {
   if (isCaptchaLoading.value) return
+
+  // 限制重试次数
+  if (captchaRetryCount.value >= maxCaptchaRetries) {
+    notify.error("验证码加载失败次数过多，请稍后再试")
+    return
+  }
+
   isCaptchaLoading.value = true
 
   try {
@@ -51,13 +60,17 @@ async function fetchCaptcha() {
     captchaLength.value = result.length
     captchaImageUrl.value = normalizeCaptchaImageSrc(result.image)
     captchaCode.value = ""
+    captchaRetryCount.value = 0 // 成功后重置计数
+  } catch (error) {
+    captchaRetryCount.value += 1
+    console.error("[Login] Failed to fetch captcha:", error)
   } finally {
     isCaptchaLoading.value = false
   }
 }
 
 function refreshCaptcha() {
-  void fetchCaptcha().catch(() => null)
+  void fetchCaptcha()
 }
 
 function requestSubmit() {
@@ -69,9 +82,16 @@ async function onSubmit() {
   isSubmitting.value = true
 
   try {
-    if (!captchaKey.value) await fetchCaptcha().catch(() => null)
-    if (!captchaKey.value) return
+    // 确保有验证码
+    if (!captchaKey.value) {
+      await fetchCaptcha()
+    }
+    if (!captchaKey.value) {
+      notify.error("请先获取验证码")
+      return
+    }
 
+    // 登录请求
     const response = await login({
       username: username.value.trim(),
       password: password.value,
@@ -80,11 +100,13 @@ async function onSubmit() {
       rememberMe: rememberPassword.value,
     })
 
+    // 保存 Token
     userStore.setTokens({
       accessToken: response.accessToken,
       refreshToken: response.refreshToken ?? null,
     })
 
+    // 跳转
     const redirect =
       typeof route.query.redirect === "string" && route.query.redirect.startsWith("/")
         ? route.query.redirect
@@ -92,7 +114,8 @@ async function onSubmit() {
 
     await router.replace(redirect)
   } catch {
-    await fetchCaptcha().catch(() => null)
+    // 登录失败，刷新验证码
+    await fetchCaptcha()
   } finally {
     isSubmitting.value = false
   }
@@ -109,12 +132,13 @@ const captchaButtonText = computed(() => {
 })
 
 onMounted(() => {
-  void fetchCaptcha().catch(() => null)
+  void fetchCaptcha()
 })
 </script>
 
 <template>
   <main class="relative flex min-h-dvh items-center justify-center px-4 py-10">
+    <!-- 背景 -->
     <div
       class="pointer-events-none absolute inset-0 z-0 bg-center bg-no-repeat opacity-70"
       :style="{ backgroundImage: `url(${backgroundUrl})`, backgroundSize: 'cover' }"
@@ -123,6 +147,7 @@ onMounted(() => {
       class="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-background/20 to-background"
     />
 
+    <!-- 登录表单 -->
     <div class="relative z-10 w-full max-w-sm">
       <div class="mb-6 text-center">
         <h1 class="text-2xl font-semibold tracking-tight">{{ appConfig.title }}</h1>
@@ -143,6 +168,7 @@ onMounted(() => {
           </CardHeader>
 
           <CardContent class="grid gap-4">
+            <!-- 用户名 -->
             <div class="grid gap-2">
               <Label for="login-username">用户名</Label>
               <Input
@@ -154,6 +180,7 @@ onMounted(() => {
               />
             </div>
 
+            <!-- 密码 -->
             <div class="grid gap-2">
               <Label for="login-password">密码</Label>
               <Input
@@ -166,6 +193,7 @@ onMounted(() => {
               />
             </div>
 
+            <!-- 验证码 -->
             <div class="grid gap-2">
               <Label for="login-captcha">验证码</Label>
               <div class="flex items-center gap-2">
@@ -183,7 +211,7 @@ onMounted(() => {
                   variant="outline"
                   size="lg"
                   class="h-12 w-44 px-1 py-1"
-                  aria-label="Refresh captcha"
+                  aria-label="刷新验证码"
                   :disabled="isCaptchaLoading"
                   @click="refreshCaptcha"
                 >
@@ -198,6 +226,7 @@ onMounted(() => {
               </div>
             </div>
 
+            <!-- 记住密码 & 找回密码 -->
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-2">
                 <Checkbox id="login-remember" v-model="rememberPassword" />

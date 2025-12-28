@@ -20,7 +20,6 @@ export const LoginResponseSchema = z
     nickname: z.string().min(1).optional(),
     accessToken: z.string().min(1),
     refreshToken: z.string().min(1).optional(),
-    tokenType: z.string().min(1).optional(),
     expireTime: z.string().min(1).optional(),
   })
   .passthrough()

@@ -7,16 +7,29 @@ import type { App, ObjectDirective } from "vue"
 
 import { useUserStore } from "@/stores/user"
 
-const originalDisplay = new WeakMap<HTMLElement, string>()
+const detachedNodes = new WeakMap<HTMLElement, Comment>()
 
 function hide(el: HTMLElement) {
-  if (!originalDisplay.has(el)) originalDisplay.set(el, el.style.display)
-  el.style.display = "none"
+  if (detachedNodes.has(el)) return
+  const parent = el.parentNode
+  if (!parent) return
+
+  const placeholder = document.createComment("permission")
+  el.before(placeholder)
+  el.remove()
+  detachedNodes.set(el, placeholder)
 }
 
 function show(el: HTMLElement) {
-  const previous = originalDisplay.get(el)
-  el.style.display = previous ?? ""
+  const placeholder = detachedNodes.get(el)
+  if (!placeholder) return
+
+  const parent = placeholder.parentNode
+  if (parent) {
+    placeholder.before(el)
+    placeholder.remove()
+  }
+  detachedNodes.delete(el)
 }
 
 function normalizeStringArray(value: unknown) {
@@ -35,6 +48,11 @@ const permissionDirective: ObjectDirective<HTMLElement, string | string[]> = {
     const userStore = useUserStore()
     if (userStore.hasAnyPermission(required)) return show(el)
     return hide(el)
+  },
+  beforeUnmount(el) {
+    const placeholder = detachedNodes.get(el)
+    if (placeholder?.parentNode) placeholder.remove()
+    detachedNodes.delete(el)
   },
   updated(el, binding) {
     const required = normalizeStringArray(binding.value)
@@ -58,6 +76,11 @@ const roleDirective: ObjectDirective<HTMLElement, string | string[]> = {
     const userStore = useUserStore()
     if (userStore.hasAnyRole(required)) return show(el)
     return hide(el)
+  },
+  beforeUnmount(el) {
+    const placeholder = detachedNodes.get(el)
+    if (placeholder?.parentNode) placeholder.remove()
+    detachedNodes.delete(el)
   },
   updated(el, binding) {
     const required = normalizeStringArray(binding.value)

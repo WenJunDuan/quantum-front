@@ -3,8 +3,9 @@
 // Principle: Routes are part of the public API surface.
 // Taste: Keep routing small, lazy-loaded, and predictable.
 
-import { getActivePinia } from "pinia"
+import NProgress from "nprogress"
 import { createRouter, createWebHistory } from "vue-router"
+import "nprogress/nprogress.css"
 
 import { getUserInfo } from "@/api/auth"
 import { appConfig } from "@/config/app"
@@ -12,25 +13,8 @@ import { registerDynamicRoutes, resetDynamicRoutes } from "@/router/dynamic"
 import { setAppRouter } from "@/router/navigation"
 import { useNotifyStore } from "@/stores/notify"
 import { useUserStore } from "@/stores/user"
-import { tokenManager } from "@/utils/token"
 
-function safeUserStore() {
-  if (!getActivePinia()) return null
-  try {
-    return useUserStore()
-  } catch {
-    return null
-  }
-}
-
-function safeNotifyStore() {
-  if (!getActivePinia()) return null
-  try {
-    return useNotifyStore()
-  } catch {
-    return null
-  }
-}
+NProgress.configure({ showSpinner: false })
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -53,31 +37,31 @@ const router = createRouter({
       path: "/login",
       name: "login",
       component: () => import("@/views/LoginView.vue"),
-      meta: { title: "登录" },
+      meta: { title: "登录", public: true },
     },
     {
       path: "/error/400",
       name: "error-400",
       component: () => import("@/views/error/Error400.vue"),
-      meta: { title: "请求错误" },
+      meta: { title: "请求错误", public: true },
     },
     {
       path: "/error/404",
       name: "error-404",
       component: () => import("@/views/error/Error404.vue"),
-      meta: { title: "页面不存在" },
+      meta: { title: "页面不存在", public: true },
     },
     {
       path: "/error/500",
       name: "error-500",
       component: () => import("@/views/error/Error500.vue"),
-      meta: { title: "系统异常" },
+      meta: { title: "系统异常", public: true },
     },
     {
       path: "/:pathMatch(.*)*",
       name: "not-found",
       component: () => import("@/views/error/Error404.vue"),
-      meta: { title: "页面不存在" },
+      meta: { title: "页面不存在", public: true },
     },
   ],
   scrollBehavior(to, from, savedPosition) {
@@ -89,17 +73,18 @@ const router = createRouter({
 setAppRouter(router)
 
 router.beforeEach(async (to) => {
-  const userStore = safeUserStore()
-  const notify = safeNotifyStore()
+  NProgress.start()
+  const userStore = useUserStore()
+  const notify = useNotifyStore()
+  const isPublicRoute = to.meta.public === true
 
   // ========== 未登录处理 ==========
-  userStore?.syncTokensFromStorage()
-  const token = tokenManager.getAccessToken()
+  const token = userStore.accessToken
   if (!token) {
     resetDynamicRoutes(router)
-    userStore?.logout()
+    userStore.logout()
 
-    if (to.meta.requiresAuth === true) {
+    if (!isPublicRoute) {
       return {
         name: "login",
         query: { redirect: to.fullPath },
@@ -114,8 +99,6 @@ router.beforeEach(async (to) => {
     return { name: "home" }
   }
 
-  if (!userStore) return true
-
   // ========== 加载用户信息 ==========
   if (!userStore.isUserInfoLoaded) {
     try {
@@ -125,7 +108,7 @@ router.beforeEach(async (to) => {
       // Token 可能已失效，清理并跳转登录
       console.error("[Router] Failed to get user info:", error)
       userStore.logout()
-      notify?.error("获取用户信息失败，请重新登录")
+      notify.error("获取用户信息失败，请重新登录")
       return {
         name: "login",
         query: { redirect: to.fullPath },
@@ -145,14 +128,14 @@ router.beforeEach(async (to) => {
     ? to.meta.roles.filter((value) => typeof value === "string")
     : []
   if (requiredRoles.length > 0 && !userStore.hasAnyRole(requiredRoles)) {
-    notify?.error("无权限访问")
+    notify.error("无权限访问")
     return { name: "error-404" }
   }
 
   // ========== 权限标识检查 ==========
   const requiredPermission = typeof to.meta.permission === "string" ? to.meta.permission.trim() : ""
   if (requiredPermission && !userStore.hasPermission(requiredPermission)) {
-    notify?.error("无权限访问")
+    notify.error("无权限访问")
     return { name: "error-404" }
   }
 
@@ -160,10 +143,15 @@ router.beforeEach(async (to) => {
 })
 
 router.afterEach((to) => {
+  NProgress.done()
   let routeTitle: string | null = null
   if (typeof to.meta.title === "string") routeTitle = to.meta.title
 
   document.title = routeTitle ? `${routeTitle} | ${appConfig.title}` : appConfig.title
+})
+
+router.onError(() => {
+  NProgress.done()
 })
 
 export default router

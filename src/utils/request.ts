@@ -1,6 +1,3 @@
-// src/utils/request.ts
-// HTTP 请求封装（Axios）
-
 import axios, {
   type AxiosError,
   type AxiosRequestConfig,
@@ -11,7 +8,7 @@ import queryString from "query-string"
 import { appConfig } from "@/config/app"
 import { ResultCode, getDefaultResultMessage } from "@/constants/result-code"
 import { getAppRouter } from "@/router/navigation"
-import { tokenManager } from "@/utils/token"
+import { useUserStore } from "@/stores/user"
 
 // ==================== 类型 ====================
 
@@ -94,14 +91,7 @@ function redirectToLogin() {
 }
 
 async function clearAuthState() {
-  tokenManager.clear()
-
-  try {
-    const { useUserStore } = await import("@/stores/user")
-    useUserStore().logout()
-  } catch {
-    // ignore: Pinia not ready or store not available
-  }
+  useUserStore().logout()
 }
 
 // ==================== Token 刷新 ====================
@@ -109,9 +99,34 @@ async function clearAuthState() {
 let isRefreshing = false
 let refreshQueue: { resolve: (token: string) => void; reject: (error: unknown) => void }[] = []
 
-async function refreshToken(): Promise<string | null> {
-  const rt = tokenManager.getRefreshToken()
-  if (!rt) return null
+type RefreshTokenResult =
+  | { status: "success"; token: string }
+  | { status: "invalid" }
+  | { status: "transient"; error: unknown }
+
+function isInvalidRefreshResponse(status?: number, data?: unknown): boolean {
+  if (status === 401 || status === 403) return true
+  if (!isBackendEnvelope(data)) return false
+  return data.code === ResultCode.UNAUTHORIZED || data.code === ResultCode.ACCESS_DENIED
+}
+
+function toRefreshTransientError(error: unknown): ApiError {
+  if (error instanceof ApiError) return error
+  if (axios.isAxiosError(error)) {
+    if (!error.response) {
+      return new ApiError(ResultCode.SERVICE_UNAVAILABLE, "网络异常，刷新登录状态失败")
+    }
+    const status = error.response.status
+    const message = getDefaultResultMessage(status)
+    return new ApiError(status, message)
+  }
+  return new ApiError(ResultCode.SERVICE_UNAVAILABLE, "网络异常，刷新登录状态失败")
+}
+
+async function refreshToken(): Promise<RefreshTokenResult> {
+  const userStore = useUserStore()
+  const rt = userStore.refreshToken
+  if (!rt) return { status: "invalid" }
 
   try {
     const res = await axios.post<unknown>(`${appConfig.apiBaseUrl}/auth/refresh`, null, {
@@ -120,26 +135,56 @@ async function refreshToken(): Promise<string | null> {
     })
 
     const data = res.data
-    if (!isBackendEnvelope(data) || data.code !== ResultCode.SUCCESS) return null
+    if (!isBackendEnvelope(data)) {
+      return {
+        status: "transient",
+        error: new ApiError(ResultCode.SERVICE_UNAVAILABLE, "刷新登录状态失败"),
+      }
+    }
+
+    if (data.code !== ResultCode.SUCCESS) {
+      if (data.code === ResultCode.UNAUTHORIZED || data.code === ResultCode.ACCESS_DENIED) {
+        return { status: "invalid" }
+      }
+      return {
+        status: "transient",
+        error: new ApiError(data.code, getEnvelopeMessage(data), getEnvelopeTraceId(data)),
+      }
+    }
 
     const payload = unwrapEnvelopeData(data)
-    if (typeof payload !== "object" || payload === null) return null
+    if (typeof payload !== "object" || payload === null) {
+      return {
+        status: "transient",
+        error: new ApiError(ResultCode.SERVICE_UNAVAILABLE, "刷新登录状态失败"),
+      }
+    }
     const record = payload as Record<string, unknown>
 
     const accessToken = typeof record.accessToken === "string" ? record.accessToken : null
-    if (!accessToken) return null
+    if (!accessToken) {
+      return {
+        status: "transient",
+        error: new ApiError(ResultCode.SERVICE_UNAVAILABLE, "刷新登录状态失败"),
+      }
+    }
 
     const refreshTokenValue =
       typeof record.refreshToken === "string" && record.refreshToken.trim()
         ? record.refreshToken
         : rt
 
-    tokenManager.setTokens({ accessToken, refreshToken: refreshTokenValue })
-    return accessToken
-  } catch {
-    // ignore
+    userStore.setTokens({ accessToken, refreshToken: refreshTokenValue })
+    return { status: "success", token: accessToken }
+  } catch (error: unknown) {
+    if (
+      axios.isAxiosError(error) &&
+      isInvalidRefreshResponse(error.response?.status, error.response?.data)
+    ) {
+      return { status: "invalid" }
+    }
+    return { status: "transient", error: toRefreshTransientError(error) }
   }
-  return null
 }
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean }
@@ -189,16 +234,16 @@ async function handleUnauthorized(config: RetryableRequestConfig): Promise<unkno
       refreshQueue.push({ resolve, reject })
     })
 
-    config.headers.setAuthorization(`Bearer ${token}`)
+    config.headers["Authorization"] = `Bearer ${token}`
     return instance.request(config)
   }
 
   // 开始刷新
   isRefreshing = true
   try {
-    const newToken = await refreshToken()
+    const refreshResult = await refreshToken()
 
-    if (!newToken) {
+    if (refreshResult.status === "invalid") {
       const error = new ApiError(ResultCode.UNAUTHORIZED, "登录已过期")
       flushRefreshQueue(null, error)
       await clearAuthState()
@@ -206,11 +251,18 @@ async function handleUnauthorized(config: RetryableRequestConfig): Promise<unkno
       throw error
     }
 
+    if (refreshResult.status === "transient") {
+      flushRefreshQueue(null, refreshResult.error)
+      throw refreshResult.error
+    }
+
+    const newToken = refreshResult.token
+
     // 通知排队的请求
     flushRefreshQueue(newToken)
 
     // 重试当前请求
-    config.headers.setAuthorization(`Bearer ${newToken}`)
+    config.headers["Authorization"] = `Bearer ${newToken}`
     return instance.request(config)
   } finally {
     isRefreshing = false
@@ -240,8 +292,10 @@ instance.interceptors.request.use((config) => {
     return config
   }
 
-  const token = tokenManager.getAccessToken()
-  if (token) config.headers.setAuthorization(`Bearer ${token}`)
+  const token = useUserStore().accessToken
+  if (token && config.headers && !config.headers["Authorization"]) {
+    config.headers["Authorization"] = `Bearer ${token}`
+  }
 
   return config
 })

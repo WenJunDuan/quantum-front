@@ -93,7 +93,16 @@ async function logout() {
 
       <!-- 页面内容 -->
       <main class="min-h-0 flex-1 overflow-auto p-4">
-        <RouterView />
+        <RouterView v-slot="{ Component, route: viewRoute }">
+          <component
+            :is="Component"
+            v-if="viewRoute.meta.noCache === true"
+            :key="viewRoute.fullPath"
+          />
+          <KeepAlive v-else :max="20">
+            <component :is="Component" :key="String(viewRoute.name ?? viewRoute.fullPath)" />
+          </KeepAlive>
+        </RouterView>
       </main>
     </div>
   </div>

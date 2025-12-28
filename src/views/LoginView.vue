@@ -5,10 +5,9 @@ Taste: Simple, clean shadcn-vue-style login form.
 -->
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue"
+import { computed, onMounted, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router"
 
-import { createCaptcha, login } from "@/api/auth"
 import backgroundUrl from "@/assets/background.svg?url"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,25 +15,32 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { appConfig } from "@/config/app"
+import { useCaptchaQuery, useLoginMutation } from "@/queries/auth"
 import { useNotifyStore } from "@/stores/notify"
-import { useUserStore } from "@/stores/user"
 
 const formRef = ref<HTMLFormElement | null>(null)
 const router = useRouter()
 const route = useRoute()
-const userStore = useUserStore()
 const notify = useNotifyStore()
 
 const username = ref("")
 const password = ref("")
 const captchaCode = ref("")
 const rememberPassword = ref(true)
-const isSubmitting = ref(false)
 
-const captchaKey = ref("")
-const captchaImageUrl = ref<string | null>(null)
-const captchaLength = ref<number | null>(null)
-const isCaptchaLoading = ref(false)
+const captchaQuery = useCaptchaQuery()
+const captcha = computed(() => captchaQuery.data.value ?? null)
+const captchaKey = computed(() => captcha.value?.key ?? "")
+const captchaLength = computed(() => captcha.value?.length ?? null)
+const captchaImageUrl = computed(() => {
+  if (!captcha.value) return null
+  return normalizeCaptchaImageSrc(captcha.value.image)
+})
+const isCaptchaLoading = computed(() => captchaQuery.isFetching.value)
+
+const loginMutation = useLoginMutation()
+const isSubmitting = computed(() => loginMutation.isPending.value)
+
 const captchaRetryCount = ref(0)
 const maxCaptchaRetries = 5
 
@@ -52,21 +58,15 @@ async function fetchCaptcha() {
     return
   }
 
-  isCaptchaLoading.value = true
-
-  try {
-    const result = await createCaptcha()
-    captchaKey.value = result.key
-    captchaLength.value = result.length
-    captchaImageUrl.value = normalizeCaptchaImageSrc(result.image)
-    captchaCode.value = ""
+  const result = await captchaQuery.refetch()
+  if (result.data) {
     captchaRetryCount.value = 0 // 成功后重置计数
-  } catch (error) {
-    captchaRetryCount.value += 1
-    console.error("[Login] Failed to fetch captcha:", error)
-  } finally {
-    isCaptchaLoading.value = false
+    captchaCode.value = ""
+    return
   }
+
+  captchaRetryCount.value += 1
+  console.error("[Login] Failed to fetch captcha:", result.error)
 }
 
 function refreshCaptcha() {
@@ -79,31 +79,21 @@ function requestSubmit() {
 
 async function onSubmit() {
   if (isSubmitting.value) return
-  isSubmitting.value = true
-
   try {
     // 确保有验证码
-    if (!captchaKey.value) {
-      await fetchCaptcha()
-    }
+    if (!captchaKey.value) await fetchCaptcha()
     if (!captchaKey.value) {
       notify.error("请先获取验证码")
       return
     }
 
     // 登录请求
-    const response = await login({
+    await loginMutation.mutateAsync({
       username: username.value.trim(),
       password: password.value,
       captchaKey: captchaKey.value,
       captchaCode: captchaCode.value.trim(),
       rememberMe: rememberPassword.value,
-    })
-
-    // 保存 Token
-    userStore.setTokens({
-      accessToken: response.accessToken,
-      refreshToken: response.refreshToken ?? null,
     })
 
     // 跳转
@@ -116,8 +106,6 @@ async function onSubmit() {
   } catch {
     // 登录失败，刷新验证码
     await fetchCaptcha()
-  } finally {
-    isSubmitting.value = false
   }
 }
 
@@ -129,6 +117,10 @@ const captchaButtonText = computed(() => {
   if (isCaptchaLoading.value) return "加载中..."
   if (!captchaImageUrl.value) return "点击获取"
   return ""
+})
+
+watch(captchaKey, (next, prev) => {
+  if (next && next !== prev) captchaCode.value = ""
 })
 
 onMounted(() => {

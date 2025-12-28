@@ -12,14 +12,29 @@ type ViewLoader = () => Promise<unknown>
 
 const viewModules = import.meta.glob("../views/**/*.vue") as Record<string, ViewLoader>
 
-const viewModuleMap = new Map<string, ViewLoader>()
-for (const [path, loader] of Object.entries(viewModules)) {
-  const normalized = path
+interface ViewModuleEntry {
+  loader: ViewLoader
+  file: string
+}
+
+function normalizeViewModuleKey(path: string) {
+  return path
+    .replaceAll("\\", "/")
     .replace(/^\.\.\/views\//, "")
     .replace(/\.vue$/i, "")
-    .replaceAll("\\", "/")
     .toLowerCase()
-  viewModuleMap.set(normalized, loader)
+}
+
+const viewModuleMap = new Map<string, ViewModuleEntry>()
+for (const [path, loader] of Object.entries(viewModules)) {
+  const normalized = normalizeViewModuleKey(path)
+  const existing = viewModuleMap.get(normalized)
+  if (existing && existing.file !== path) {
+    throw new Error(
+      `[DynamicRoutes] Duplicate view module key "${normalized}": "${existing.file}" and "${path}".`,
+    )
+  }
+  viewModuleMap.set(normalized, { loader, file: path })
 }
 
 const dynamicRouteNames = new Set<RouteRecordName>()
@@ -110,10 +125,10 @@ function resolveViewLoader(component?: string) {
   // 跳过布局组件
   if (key === "layout" || key === "parentview" || key === "routerview") return null
 
-  const direct = viewModuleMap.get(key)
+  const direct = viewModuleMap.get(key)?.loader
   if (direct) return direct
 
-  const index = viewModuleMap.get(`${key}/index`)
+  const index = viewModuleMap.get(`${key}/index`)?.loader
   if (index) return index
 
   return null

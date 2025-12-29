@@ -7,7 +7,7 @@ Taste: Small toast host driven by a store.
 <script setup lang="ts">
 import { storeToRefs } from "pinia"
 
-import AppIcon from "@/components/AppIcon.vue"
+import AppIcon from "@/components/app-icon"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useNotifyStore, type NotifyItem } from "@/stores/notify"

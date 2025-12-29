@@ -7,8 +7,8 @@ Taste: A minimal layout; views own their UI.
 <script setup lang="ts">
 import { RouterView } from "vue-router"
 
-import AppConfirmHost from "@/components/AppConfirmHost.vue"
-import AppToastHost from "@/components/AppToastHost.vue"
+import AppConfirmHost from "@/components/app-confirm-host"
+import AppToastHost from "@/components/app-toast-host"
 </script>
 
 <template>

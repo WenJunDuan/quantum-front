@@ -8,6 +8,7 @@ import { createPinia } from "pinia"
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate"
 import { createApp } from "vue"
 
+import { useAppAccentColor } from "@/composables/useAppAccentColor"
 import { useAppColorMode } from "@/composables/useAppColorMode"
 import { registerPermissionDirectives } from "@/directives/permission"
 import "@/lib/iconify"
@@ -29,6 +30,7 @@ const queryClient = new QueryClient({
 })
 
 useAppColorMode()
+useAppAccentColor()
 
 const app = createApp(App)
 app.use(pinia).use(router).use(VueQueryPlugin, { queryClient })

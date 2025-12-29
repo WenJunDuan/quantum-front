@@ -13,23 +13,19 @@ const tabsStore = useTabsStore()
 </script>
 
 <template>
-  <main class="min-h-0 flex-1 overflow-auto bg-transparent p-1">
-    <div
-      class="min-h-full w-full rounded-xl bg-card p-2.5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.25)] ring-1 ring-foreground/5"
-    >
-      <RouterView v-slot="{ Component, route: viewRoute }">
+  <main class="min-h-0 flex-1 overflow-auto bg-card p-4">
+    <RouterView v-slot="{ Component, route: viewRoute }">
+      <component
+        :is="Component"
+        v-if="viewRoute.meta.noCache === true"
+        :key="`${viewRoute.fullPath}:${tabsStore.getRefreshKey(viewRoute.fullPath)}`"
+      />
+      <KeepAlive v-else :max="20">
         <component
           :is="Component"
-          v-if="viewRoute.meta.noCache === true"
           :key="`${viewRoute.fullPath}:${tabsStore.getRefreshKey(viewRoute.fullPath)}`"
         />
-        <KeepAlive v-else :max="20">
-          <component
-            :is="Component"
-            :key="`${viewRoute.fullPath}:${tabsStore.getRefreshKey(viewRoute.fullPath)}`"
-          />
-        </KeepAlive>
-      </RouterView>
-    </div>
+      </KeepAlive>
+    </RouterView>
   </main>
 </template>

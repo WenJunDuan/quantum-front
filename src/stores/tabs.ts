@@ -21,7 +21,7 @@ const HOME_TAB: AppTab = {
   key: "/",
   title: "首页",
   fullPath: "/",
-  closable: false,
+  closable: true,
 }
 
 function titleFromRoute(route: RouteLocationNormalizedLoaded): string {
@@ -51,11 +51,9 @@ export const useTabsStore = defineStore(
 
     const activeTab = computed(() => tabs.value.find((tab) => tab.key === activeKey.value) ?? null)
 
-    function ensureHomeTab() {
+    function ensureAtLeastOneTab() {
       if (!enabled.value) return
-      if (!tabs.value.some((tab) => tab.key === HOME_TAB.key)) {
-        tabs.value.unshift({ ...HOME_TAB })
-      }
+      if (tabs.value.length === 0) tabs.value = [{ ...HOME_TAB }]
       if (!activeKey.value) activeKey.value = tabs.value[0]?.key ?? HOME_TAB.key
     }
 
@@ -67,10 +65,13 @@ export const useTabsStore = defineStore(
       if (!enabled.value) return
       if (!isTabbableRoute(route)) return
 
-      ensureHomeTab()
+      ensureAtLeastOneTab()
 
       const key = route.fullPath
       if (key === HOME_TAB.key) {
+        if (!tabs.value.some((tab) => tab.key === HOME_TAB.key)) {
+          tabs.value.unshift({ ...HOME_TAB })
+        }
         activeKey.value = HOME_TAB.key
         return
       }
@@ -94,6 +95,7 @@ export const useTabsStore = defineStore(
     function close(tabKey: string): string | null {
       const index = tabs.value.findIndex((tab) => tab.key === tabKey)
       if (index === -1) return null
+      if (tabs.value.length <= 1) return null
       if (tabs.value[index]?.closable !== true) return null
 
       const wasActive = activeKey.value === tabKey
@@ -108,18 +110,19 @@ export const useTabsStore = defineStore(
     }
 
     function closeOthers(tabKey: string): string | null {
-      ensureHomeTab()
+      ensureAtLeastOneTab()
 
-      const keep = new Set([HOME_TAB.key, tabKey])
+      const keep = new Set([tabKey])
       tabs.value = tabs.value.filter((tab) => keep.has(tab.key))
-      activeKey.value = keep.has(tabKey) ? tabKey : HOME_TAB.key
+      ensureAtLeastOneTab()
+      activeKey.value = tabs.value.some((tab) => tab.key === tabKey) ? tabKey : tabs.value[0]!.key
 
       for (const key of Object.keys(refreshKeyByTab.value)) {
         if (!keep.has(key)) delete refreshKeyByTab.value[key]
       }
 
-      const target = tabs.value.find((tab) => tab.key === activeKey.value) ?? HOME_TAB
-      return target.fullPath
+      const target = tabs.value.find((tab) => tab.key === activeKey.value) ?? tabs.value[0]!
+      return target.fullPath ?? "/"
     }
 
     function closeAll(): string | null {
@@ -141,7 +144,7 @@ export const useTabsStore = defineStore(
         refreshKeyByTab.value = {}
         return
       }
-      ensureHomeTab()
+      ensureAtLeastOneTab()
     }
 
     return {

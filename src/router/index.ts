@@ -28,15 +28,36 @@ const router = createRouter({
         {
           path: "",
           name: "home",
-          component: () => import("@/views/HomeView.vue"),
-          meta: { title: "首页" },
+          component: () => import("@/views/dashboard/DashboardView.vue"),
+          meta: { title: "Dashboard" },
+        },
+        {
+          path: "user",
+          name: "user",
+          component: () => import("@/views/user/UserSettingsLayout.vue"),
+          meta: { title: "用户" },
+          children: [
+            { path: "", redirect: "/user/profile" },
+            {
+              path: "profile",
+              name: "user-profile",
+              component: () => import("@/views/user/ProfileView.vue"),
+              meta: { title: "个人资料" },
+            },
+            {
+              path: "account",
+              name: "user-account",
+              component: () => import("@/views/user/AccountView.vue"),
+              meta: { title: "账号" },
+            },
+          ],
         },
       ],
     },
     {
       path: "/login",
       name: "login",
-      component: () => import("@/views/LoginView.vue"),
+      component: () => import("@/views/login/LoginView.vue"),
       meta: { title: "登录", public: true },
     },
     {

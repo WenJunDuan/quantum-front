@@ -18,7 +18,7 @@ import AppIcon from "@/components/app-icon"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { useAppAccentColor } from "@/composables/useAppAccentColor"
+import { type AccentColorKey, useAppAccentColor } from "@/composables/useAppAccentColor"
 import { useAppColorMode } from "@/composables/useAppColorMode"
 import { appConfig } from "@/config/app"
 import { useNotifyStore } from "@/stores/notify"
@@ -44,11 +44,20 @@ const { profile, routers } = storeToRefs(userStore)
 const { tabs: openedTabs, activeKey: activeTabKey, enabled: tabsEnabled } = storeToRefs(tabsStore)
 
 const { isDark, preference, toggleColorMode } = useAppColorMode()
-const { accentKey, options: accentOptions, setAccentKey } = useAppAccentColor()
+const {
+  accentKey,
+  customColor,
+  options: accentOptions,
+  setAccentKey,
+  setCustomColor,
+} = useAppAccentColor()
 
 const isLoggingOut = ref(false)
 
 // ========== Search palette ==========
+
+const CUSTOM_SWATCH_GRADIENT =
+  "conic-gradient(from 180deg, #FF3B30, #FF9500, #FFCC00, #34C759, #32ADE6, #5856D6, #AF52DE, #FF2D55, #FF3B30)"
 
 const isSearchOpen = ref(false)
 const searchQuery = ref("")
@@ -63,9 +72,10 @@ const avatarLoadFailed = ref(false)
 const displayName = computed(() => profile.value?.nickname ?? profile.value?.username ?? "用户")
 const userSubline = computed(() => profile.value?.email ?? profile.value?.username ?? "")
 
-const accentLabel = computed(
-  () => accentOptions.find((option) => option.key === accentKey.value)?.label ?? "",
-)
+const accentLabel = computed(() => {
+  if (accentKey.value === "custom") return customColor.value
+  return accentOptions.find((option) => option.key === accentKey.value)?.label ?? ""
+})
 
 const avatarSrc = computed(() => {
   if (avatarLoadFailed.value) return defaultAvatar
@@ -82,6 +92,28 @@ watch(
 
 function onAvatarError() {
   avatarLoadFailed.value = true
+}
+
+function onAccentOptionClick(key: AccentColorKey, event: MouseEvent) {
+  if (key !== "custom") {
+    setAccentKey(key)
+    return
+  }
+
+  setAccentKey("custom")
+
+  const button = event.currentTarget as HTMLElement | null
+  const input = button?.querySelector("input[type='color']") as HTMLInputElement | null
+  input?.click()
+}
+
+function onCustomAccentInput(event: Event) {
+  const input = event.target as HTMLInputElement | null
+  const value = input?.value
+  if (typeof value !== "string") return
+
+  setAccentKey("custom")
+  setCustomColor(value)
 }
 
 const pageTitle = computed(() => {
@@ -309,13 +341,7 @@ function findProfilePath(items: unknown, parentPath = ""): string | null {
 const profilePath = computed(() => findProfilePath(routers.value))
 
 function openProfile() {
-  const target = profilePath.value
-  if (!target) {
-    notify.info("未找到个人信息入口")
-    closeUserMenu()
-    return
-  }
-
+  const target = profilePath.value || "/user/profile"
   closeUserMenu()
   void router.push(target)
 }
@@ -436,6 +462,10 @@ function closeAllTabs() {
   const next = tabsStore.closeAll()
   closeTabMenu()
   if (next && next !== route.fullPath) void router.push(next)
+}
+
+function shouldShowTabTooltip(title: string) {
+  return title.trim().length > 10
 }
 
 function onDocumentPointerDown(event: PointerEvent) {
@@ -712,13 +742,34 @@ onUnmounted(() => {
                     type="button"
                     class="relative grid h-11 w-11 place-items-center rounded-xl ring-1 ring-foreground/10 transition-[transform,box-shadow] hover:-translate-y-px hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     :class="[option.key === accentKey ? 'ring-2 ring-ring' : '']"
-                    :aria-label="`主题色：${option.label}`"
-                    @click="setAccentKey(option.key)"
+                    :aria-label="
+                      option.key === 'custom' ? '自定义主题色' : `主题色：${option.label}`
+                    "
+                    @click="onAccentOptionClick(option.key, $event)"
                   >
-                    <span
-                      class="h-5 w-5 rounded-full ring-1 ring-foreground/15"
-                      :style="{ backgroundColor: swatchColor(option.light, option.dark) }"
+                    <input
+                      v-if="option.key === 'custom'"
+                      type="color"
+                      class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      :value="customColor"
+                      aria-label="自定义主题色"
+                      @click.stop="setAccentKey('custom')"
+                      @input="onCustomAccentInput"
                     />
+                    <span
+                      class="relative h-5 w-5 rounded-full ring-1 ring-foreground/15"
+                      :style="
+                        option.key === 'custom'
+                          ? { backgroundImage: CUSTOM_SWATCH_GRADIENT }
+                          : { backgroundColor: swatchColor(option.light, option.dark) }
+                      "
+                    >
+                      <span
+                        v-if="option.key === 'custom'"
+                        class="absolute right-0.5 bottom-0.5 h-2 w-2 rounded-full ring-1 ring-foreground/25"
+                        :style="{ backgroundColor: customColor }"
+                      />
+                    </span>
                   </button>
                 </div>
               </div>
@@ -759,14 +810,22 @@ onUnmounted(() => {
         <div
           v-for="tab in openedTabs"
           :key="tab.key"
-          class="group inline-flex h-full w-24 items-center gap-2 border-r border-b-2 border-foreground/5 border-b-transparent px-2 text-[12px] leading-none font-medium transition-[background,color,border-color]"
+          class="group relative inline-flex h-full w-32 items-center gap-2 border-r border-b-2 border-foreground/5 border-b-transparent px-2 text-[12px] leading-none font-medium transition-[background,color,border-color]"
           :class="[
             tab.key === activeTabKey
               ? 'border-b-primary/60 bg-background/60 text-foreground'
               : 'text-muted-foreground hover:border-b-primary/50 hover:bg-background/60 hover:text-foreground',
           ]"
+          :title="tab.title"
           @contextmenu.prevent="openTabMenu($event, tab)"
         >
+          <div
+            v-if="shouldShowTabTooltip(tab.title)"
+            class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 rounded-lg bg-popover/80 px-3 py-1.5 text-[12px] whitespace-nowrap text-foreground shadow-lg ring-1 ring-foreground/5 backdrop-blur-xl group-hover:block"
+          >
+            {{ tab.title }}
+          </div>
+
           <button
             type="button"
             class="flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -781,7 +840,7 @@ onUnmounted(() => {
             type="button"
             class="grid h-7 w-7 place-items-center rounded-md text-muted-foreground/70 transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-30"
             aria-label="Close tab"
-            :disabled="tab.closable !== true"
+            :disabled="openedTabs.length <= 1 || tab.closable !== true"
             @click.stop="closeTabByKey(tab.key)"
           >
             <AppIcon icon="radix-icons:cross-1" class="h-3.5 w-3.5" />
@@ -813,7 +872,7 @@ onUnmounted(() => {
       type="button"
       class="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-[13px] hover:bg-accent disabled:opacity-50"
       role="menuitem"
-      :disabled="tabMenuTargetKey === '/'"
+      :disabled="openedTabs.length <= 1"
       @click="closeTabByKey(tabMenuTargetKey)"
     >
       <AppIcon icon="radix-icons:cross-1" class="h-4 w-4 text-muted-foreground" />

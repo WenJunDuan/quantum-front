@@ -47,8 +47,8 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <transition
-      enter-active-class="duration-150 ease-out"
-      leave-active-class="duration-150 ease-in"
+      enter-active-class="transition-opacity duration-[var(--motion-duration)] ease-[var(--motion-ease)]"
+      leave-active-class="transition-opacity duration-[var(--motion-duration)] ease-[var(--motion-ease)]"
       enter-from-class="opacity-0"
       enter-to-class="opacity-100"
       leave-from-class="opacity-100"
@@ -56,28 +56,40 @@ onBeforeUnmount(() => {
     >
       <div
         v-if="active"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm dark:bg-black/60"
         role="dialog"
         aria-modal="true"
         @click.self="confirm.cancel()"
       >
-        <div class="w-full max-w-md rounded-lg border bg-background p-4 shadow-xl">
-          <div class="text-base font-semibold">{{ active.title }}</div>
-          <p class="mt-2 text-sm break-words whitespace-pre-wrap text-muted-foreground">
-            {{ active.message }}
-          </p>
+        <transition
+          enter-active-class="transition duration-[var(--motion-duration-slow)] ease-[var(--motion-ease-spring)]"
+          leave-active-class="transition duration-[var(--motion-duration)] ease-[var(--motion-ease)]"
+          enter-from-class="opacity-0 translate-y-2 scale-[0.98]"
+          enter-to-class="opacity-100 translate-y-0 scale-100"
+          leave-from-class="opacity-100 translate-y-0 scale-100"
+          leave-to-class="opacity-0 translate-y-2 scale-[0.98]"
+        >
+          <div
+            v-if="active"
+            class="w-full max-w-md rounded-lg border bg-background/80 p-4 shadow-xl backdrop-blur-xl will-change-transform"
+          >
+            <div class="text-base font-semibold">{{ active.title }}</div>
+            <p class="mt-2 text-sm break-words whitespace-pre-wrap text-muted-foreground">
+              {{ active.message }}
+            </p>
 
-          <div class="mt-4 flex justify-end gap-2">
-            <Button variant="outline" @click="confirm.cancel()">{{ active.cancelText }}</Button>
-            <Button
-              :variant="confirmButtonVariant"
-              :class="confirmButtonClass"
-              @click="confirm.confirm()"
-            >
-              {{ active.confirmText }}
-            </Button>
+            <div class="mt-4 flex justify-end gap-2">
+              <Button variant="outline" @click="confirm.cancel()">{{ active.cancelText }}</Button>
+              <Button
+                :variant="confirmButtonVariant"
+                :class="confirmButtonClass"
+                @click="confirm.confirm()"
+              >
+                {{ active.confirmText }}
+              </Button>
+            </div>
           </div>
-        </div>
+        </transition>
       </div>
     </transition>
   </Teleport>

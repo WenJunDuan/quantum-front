@@ -35,7 +35,7 @@ function onInput(event: Event) {
     v-bind="delegatedProps"
     :class="
       cn(
-        'flex h-11 w-full rounded-lg border border-input bg-background/60 px-4 py-2 text-[13px] shadow-sm backdrop-blur transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+        'flex h-11 w-full rounded-lg border border-input bg-background/55 px-4 py-2 text-[13px] shadow-sm backdrop-blur-sm backdrop-saturate-150 transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 supports-[backdrop-filter]:bg-background/45',
         attrs.class,
       )
     "

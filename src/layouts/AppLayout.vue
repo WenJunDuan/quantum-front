@@ -57,7 +57,7 @@ watch(isSidebarCollapsed, (value) => {
     <div class="relative flex h-full w-full overflow-hidden bg-background">
       <div
         v-show="isSidebarOpen"
-        class="absolute inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden"
+        class="absolute inset-0 z-40 bg-black/25 backdrop-blur-sm lg:hidden dark:bg-black/60"
         @click="closeSidebar"
       />
 

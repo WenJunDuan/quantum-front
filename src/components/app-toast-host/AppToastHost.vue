@@ -31,19 +31,19 @@ function toastClass(item: NotifyItem) {
 <template>
   <div class="fixed top-4 right-4 z-50 flex w-[22rem] flex-col gap-2">
     <transition-group
-      enter-active-class="duration-150 ease-out"
-      leave-active-class="duration-150 ease-in"
-      enter-from-class="opacity-0 translate-y-1"
-      enter-to-class="opacity-100 translate-y-0"
-      leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-1"
+      enter-active-class="transition duration-[var(--motion-duration)] ease-[var(--motion-ease-spring)]"
+      leave-active-class="transition duration-[var(--motion-duration)] ease-[var(--motion-ease)]"
+      enter-from-class="opacity-0 translate-y-2 scale-[0.98]"
+      enter-to-class="opacity-100 translate-y-0 scale-100"
+      leave-from-class="opacity-100 translate-y-0 scale-100"
+      leave-to-class="opacity-0 translate-y-2 scale-[0.98]"
     >
       <div
         v-for="item in items"
         :key="item.id"
         :class="
           cn(
-            'flex items-start gap-3 rounded-lg border bg-background/90 p-3 shadow-lg backdrop-blur',
+            'flex items-start gap-3 rounded-lg border bg-background/75 p-3 shadow-lg backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-background/65',
             toastClass(item),
           )
         "

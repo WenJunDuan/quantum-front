@@ -49,6 +49,17 @@
       Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 
     --radius: 0.75rem;
+
+    --motion-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+    --motion-ease-spring: cubic-bezier(0.16, 1.25, 0.3, 1);
+    --motion-ease: var(--motion-ease-standard);
+    --motion-duration-fast: 120ms;
+    --motion-duration: 180ms;
+    --motion-duration-slow: 260ms;
+
+    --default-transition-duration: var(--motion-duration);
+    --default-transition-timing-function: var(--motion-ease-standard);
+    --ease-out: var(--motion-ease-standard);
     --accent-primary-light: #007aff;
     --accent-primary-dark: #0a84ff;
     --accent-primary: var(--accent-primary-light);
@@ -139,5 +150,19 @@
   h5,
   h6 {
     font-family: inherit;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
   }
 }

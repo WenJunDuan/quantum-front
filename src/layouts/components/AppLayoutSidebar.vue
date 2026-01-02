@@ -49,7 +49,7 @@ watch(isGeneralOpen, (value) => {
 
 <template>
   <aside
-    class="absolute inset-y-0 left-0 z-50 flex w-[18rem] -translate-x-full flex-col bg-card/80 shadow-[12px_0_34px_-22px_rgba(0,0,0,0.35)] ring-1 ring-foreground/5 backdrop-blur-xl transition-[transform,width] duration-200 ease-out lg:static lg:z-auto lg:translate-x-0"
+    class="absolute inset-y-0 left-0 z-50 flex w-[18rem] -translate-x-full flex-col bg-card/75 shadow-[12px_0_34px_-22px_rgba(0,0,0,0.35)] ring-1 ring-foreground/5 backdrop-blur-xl backdrop-saturate-150 transition-transform duration-[var(--motion-duration-slow)] ease-[var(--motion-ease-spring)] will-change-transform supports-[backdrop-filter]:bg-card/65 lg:static lg:z-auto lg:translate-x-0"
     :class="[props.isOpen ? 'translate-x-0' : '', props.isCollapsed ? 'lg:w-16' : 'lg:w-[18rem]']"
   >
     <div class="flex h-14 items-center gap-2 px-3" :class="[props.isCollapsed ? 'lg:px-2' : '']">

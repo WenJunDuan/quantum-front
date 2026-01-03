@@ -6,6 +6,7 @@ Taste: Simple, clean shadcn-vue-style login form.
 -->
 
 <script setup lang="ts">
+import SHA256 from "crypto-js/sha256"
 import { computed, onMounted, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router"
 
@@ -88,10 +89,12 @@ async function onSubmit() {
       return
     }
 
+    const hashedPassword = SHA256(password.value).toString()
+
     // 登录请求
     await loginMutation.mutateAsync({
       username: username.value.trim(),
-      password: password.value,
+      password: hashedPassword,
       captchaKey: captchaKey.value,
       captchaCode: captchaCode.value.trim(),
       rememberMe: rememberPassword.value,

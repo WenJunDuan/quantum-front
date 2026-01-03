@@ -1,5 +1,6 @@
 <!-- {{RIPER-10 Action}}
 Role: LD | Task_ID: #user-settings | Time: 2025-12-29T00:00:00+08:00
+File: src/views/system/user/UserSettingsLayout.vue
 Principle: Settings pages are content-first and predictable.
 Taste: Apple-like hierarchy with a calm sidebar + clear form area.
 -->

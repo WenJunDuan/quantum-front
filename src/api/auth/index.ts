@@ -1,4 +1,4 @@
-// src/api/auth.ts
+// src/api/auth/index.ts
 // 认证相关 API
 
 import {
@@ -57,6 +57,29 @@ function normalizeLoginResponse(data: unknown): unknown {
   }
 }
 
+function normalizeUserInfoResponse(data: unknown): unknown {
+  if (typeof data !== "object" || data === null) return data
+  const record = data as Record<string, unknown>
+
+  const profile = record.profile
+  if (typeof profile !== "object" || profile === null) return data
+
+  const profileRecord = profile as Record<string, unknown>
+
+  const roles = Array.isArray(record.roles) ? record.roles : profileRecord.roles
+  const permissions = Array.isArray(record.permissions)
+    ? record.permissions
+    : profileRecord.permissions
+  const routers = Array.isArray(record.routers) ? record.routers : profileRecord.routers
+
+  return {
+    ...profileRecord,
+    ...(Array.isArray(roles) ? { roles } : {}),
+    ...(Array.isArray(permissions) ? { permissions } : {}),
+    ...(Array.isArray(routers) ? { routers } : {}),
+  }
+}
+
 export async function login(payload: LoginPayload): Promise<LoginResponse> {
   const data = await request.post<unknown>(
     "/auth/login",
@@ -80,7 +103,7 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
  */
 export async function getUserInfo(): Promise<UserInfo> {
   const data = await request.get<unknown>("/auth/info")
-  return UserInfoSchema.parse(data)
+  return UserInfoSchema.parse(normalizeUserInfoResponse(data))
 }
 
 /**

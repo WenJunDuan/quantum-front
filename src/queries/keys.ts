@@ -8,4 +8,10 @@ export const queryKeys = {
     captcha: () => ["auth", "captcha"] as const,
     userInfo: () => ["auth", "userInfo"] as const,
   },
+  system: {
+    menu: {
+      tree: () => ["system", "menu", "tree"] as const,
+      detail: (menuId: number) => ["system", "menu", "detail", menuId] as const,
+    },
+  },
 } as const

@@ -1,5 +1,6 @@
 <!-- {{RIPER-10 Action}}
 Role: LD | Task_ID: #user-settings | Time: 2025-12-29T00:00:00+08:00
+File: src/views/system/user/AccountView.vue
 Principle: Keep settings small and predictable.
 Taste: Calm placeholder until backend is ready.
 -->

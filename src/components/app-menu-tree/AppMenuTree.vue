@@ -64,6 +64,15 @@ function resolveIcon(icon?: string) {
   return `radix-icons:${value}`
 }
 
+function resolveExternalLink(link?: string) {
+  const value = typeof link === "string" ? link.trim() : ""
+  if (!value) return null
+
+  // Only treat absolute/schemed URLs as external links. Backend may also send `link` as a path segment.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith("//")) return value
+  return null
+}
+
 const menuItems = computed(() =>
   props.items
     .filter((item) => item.hidden !== true)
@@ -72,7 +81,7 @@ const menuItems = computed(() =>
       const fullPath = joinPath(props.parentPath, item.path)
       const children = Array.isArray(item.children) ? item.children : []
       const icon = resolveIcon(item.meta?.icon)
-      const externalLink = typeof item.meta?.link === "string" ? item.meta.link : null
+      const externalLink = resolveExternalLink(item.meta?.link)
 
       return {
         title: title.trim() || "未命名菜单",

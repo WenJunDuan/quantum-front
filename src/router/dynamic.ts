@@ -155,7 +155,7 @@ function toRouteRecord(
 
   const component: RouteRecordRaw["component"] =
     resolvedLoader ??
-    (children.length > 0 ? RouterView : () => import("@/views/NotImplementedView.vue"))
+    (children.length > 0 ? RouterView : () => import("@/views/error/Error404.vue"))
 
   return {
     name,

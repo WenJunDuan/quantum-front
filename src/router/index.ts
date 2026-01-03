@@ -34,20 +34,20 @@ const router = createRouter({
         {
           path: "user",
           name: "user",
-          component: () => import("@/views/user/UserSettingsLayout.vue"),
+          component: () => import("@/views/system/user/UserSettingsLayout.vue"),
           meta: { title: "用户" },
           children: [
             { path: "", redirect: "/user/profile" },
             {
               path: "profile",
               name: "user-profile",
-              component: () => import("@/views/user/ProfileView.vue"),
+              component: () => import("@/views/system/user/ProfileView.vue"),
               meta: { title: "个人资料" },
             },
             {
               path: "account",
               name: "user-account",
-              component: () => import("@/views/user/AccountView.vue"),
+              component: () => import("@/views/system/user/AccountView.vue"),
               meta: { title: "账号" },
             },
           ],
@@ -57,7 +57,7 @@ const router = createRouter({
     {
       path: "/login",
       name: "login",
-      component: () => import("@/views/login/LoginView.vue"),
+      component: () => import("@/views/auth/login/LoginView.vue"),
       meta: { title: "登录", public: true },
     },
     {

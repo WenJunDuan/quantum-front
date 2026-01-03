@@ -1,5 +1,6 @@
 <!-- {{RIPER-10 Action}}
 Role: LD | Task_ID: #fix-login | Time: 2025-12-27T00:00:00+08:00
+File: src/views/auth/login/LoginView.vue
 Principle: Keep the first page focused and predictable.
 Taste: Simple, clean shadcn-vue-style login form.
 -->

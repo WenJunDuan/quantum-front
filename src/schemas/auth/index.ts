@@ -1,4 +1,5 @@
 // {{RIPER-10 Action}}
+// src/schemas/auth/index.ts
 // Role: LD | Task_ID: #auth | Time: 2025-12-27T00:00:00+08:00
 // Principle: Runtime validation is part of the contract.
 // Taste: Keep schemas close to auth domain.

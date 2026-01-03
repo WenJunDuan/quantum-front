@@ -1,5 +1,6 @@
 <!-- {{RIPER-10 Action}}
 Role: LD | Task_ID: #user-profile | Time: 2025-12-29T00:00:00+08:00
+File: src/views/system/user/ProfileView.vue
 Principle: Forms should be calm, readable, and reversible.
 Taste: Apple-like spacing, subtle separators, and high hit-targets.
 -->

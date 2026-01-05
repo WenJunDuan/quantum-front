@@ -3,7 +3,7 @@
 // Principle: Components don't fetch; hooks do.
 // Taste: Small query/mutation wrappers with stable keys.
 
-import type { MenuCreateRequest, MenuUpdateRequest } from "@/schemas/system/menu"
+import type { MenuCreateRequest, MenuQuery, MenuUpdateRequest } from "@/schemas/system/menu"
 import type { Ref } from "vue"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query"
@@ -12,10 +12,12 @@ import { computed } from "vue"
 import { createMenu, deleteMenu, getMenu, listMenuTree, updateMenu } from "@/api/system/menu"
 import { queryKeys } from "@/queries/keys"
 
-export function useMenuTreeQuery() {
+export function useMenuTreeQuery(query?: Ref<MenuQuery>) {
   return useQuery({
-    queryKey: queryKeys.system.menu.tree(),
-    queryFn: () => listMenuTree(),
+    queryKey: computed(() =>
+      query ? [...queryKeys.system.menu.tree(), query.value] : queryKeys.system.menu.tree(),
+    ),
+    queryFn: () => listMenuTree(query ? query.value : {}),
     retry: 1,
     staleTime: 0,
     refetchOnWindowFocus: false,

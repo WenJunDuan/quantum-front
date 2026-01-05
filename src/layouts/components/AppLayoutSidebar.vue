@@ -1,7 +1,14 @@
-<!-- {{RIPER-10 Action}}
-Role: LD | Task_ID: #layout-split | Time: 2025-12-29T00:00:00+08:00
-Principle: Layout is composition; keep pieces small.
-Taste: Sidebar is navigation + branding only.
+<!--
+  Sidebar 组件 - shadcn-vue 官方规范
+  
+  修改点：
+  - 宽度: w-[18rem] → w-64
+  - 背景: 移除 backdrop-blur，使用简洁 bg-background
+  - 边框: ring-1 → border-r
+  - 菜单项高度: h-11 → h-9
+  - 字体: text-[13px] → text-sm
+  - 圆角: rounded-lg → 默认
+  - 激活态: 移除 shadow-sm
 -->
 
 <script setup lang="ts">
@@ -13,7 +20,6 @@ import { RouterLink, useRoute } from "vue-router"
 import AppIcon from "@/components/app-icon"
 import AppMenuTree from "@/components/app-menu-tree"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { appConfig } from "@/config/app"
 
 const props = defineProps<{
@@ -144,31 +150,31 @@ watch(
 
 <template>
   <aside
-    class="absolute inset-y-0 left-0 z-50 flex w-[18rem] -translate-x-full flex-col bg-card/75 shadow-[12px_0_34px_-22px_rgba(0,0,0,0.35)] ring-1 ring-foreground/5 backdrop-blur-xl backdrop-saturate-150 transition-transform duration-[var(--motion-duration-slow)] ease-[var(--motion-ease-spring)] will-change-transform supports-[backdrop-filter]:bg-card/65 lg:static lg:z-auto lg:translate-x-0"
-    :class="[props.isOpen ? 'translate-x-0' : '', props.isCollapsed ? 'lg:w-16' : 'lg:w-[18rem]']"
+    class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r bg-background transition-transform lg:static lg:z-auto lg:translate-x-0"
+    :class="[props.isOpen ? 'translate-x-0' : '', props.isCollapsed ? 'lg:w-16' : 'lg:w-64']"
   >
-    <div class="flex h-14 items-center gap-2 px-3" :class="[props.isCollapsed ? 'lg:px-2' : '']">
-      <RouterLink
-        to="/"
-        title="返回首页"
-        class="group flex h-11 min-w-0 flex-1 items-center justify-center gap-3 rounded-xl px-2 py-1 transition-[background,box-shadow,transform] hover:-translate-y-px hover:bg-accent/60 hover:shadow-sm"
-      >
+    <!-- Logo 区域 -->
+    <div
+      class="flex h-14 items-center gap-2 border-b px-4"
+      :class="[props.isCollapsed ? 'lg:justify-center lg:px-2' : '']"
+    >
+      <RouterLink to="/" title="返回首页" class="flex items-center gap-3">
         <div
-          class="grid h-9 w-9 place-items-center rounded-lg bg-primary text-primary-foreground shadow-sm"
+          class="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground"
         >
           <AppIcon icon="radix-icons:dashboard" class="h-4 w-4" />
         </div>
 
-        <div v-if="!props.isCollapsed" class="min-w-0 py-0.5 text-center leading-tight">
-          <div class="truncate text-[13px] font-semibold tracking-tight">{{ appConfig.title }}</div>
-          <div class="truncate text-[11px] text-muted-foreground">Vite + shadcn-vue</div>
+        <div v-if="!props.isCollapsed" class="min-w-0">
+          <div class="truncate text-sm font-semibold tracking-tight">{{ appConfig.title }}</div>
         </div>
       </RouterLink>
 
       <Button
+        v-if="!props.isCollapsed"
         variant="ghost"
         size="icon"
-        class="rounded-full lg:hidden"
+        class="ml-auto lg:hidden"
         aria-label="Close sidebar"
         @click="emit('close')"
       >
@@ -176,47 +182,47 @@ watch(
       </Button>
     </div>
 
-    <Separator class="opacity-10" />
-
+    <!-- 导航区域 -->
     <nav
-      class="flex-1 overflow-auto px-2 py-3"
-      :class="[props.isCollapsed ? 'lg:px-1' : '']"
+      class="flex-1 overflow-auto p-2"
+      :class="[props.isCollapsed ? 'lg:px-2' : '']"
       aria-label="Sidebar"
     >
+      <!-- Dashboard 首页 -->
       <Button
         as-child
         variant="ghost"
-        class="h-11 w-full rounded-lg text-[13px] font-medium"
+        class="h-9 w-full justify-start"
         :class="[
-          props.isCollapsed ? 'justify-center px-0' : 'justify-start gap-3 pr-3',
-          isDashboardActive
-            ? 'bg-accent text-foreground shadow-sm'
-            : 'text-muted-foreground hover:bg-accent hover:text-foreground hover:shadow-sm',
+          props.isCollapsed ? 'lg:justify-center lg:px-0' : 'gap-2',
+          isDashboardActive ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground',
         ]"
       >
         <RouterLink
           to="/"
           :title="props.isCollapsed ? 'Dashboard' : undefined"
           class="flex w-full items-center"
-          :class="[props.isCollapsed ? 'justify-center' : 'gap-3 pl-3']"
+          :class="[props.isCollapsed ? 'justify-center' : 'gap-2 px-2']"
         >
           <AppIcon
             icon="radix-icons:home"
             class="h-4 w-4"
-            :class="[isDashboardActive ? 'text-primary' : 'text-muted-foreground']"
+            :class="[isDashboardActive ? 'text-foreground' : 'text-muted-foreground']"
           />
           <span v-if="!props.isCollapsed">Dashboard</span>
           <span v-else class="sr-only">Dashboard</span>
         </RouterLink>
       </Button>
 
-      <div class="mt-2">
-        <div v-for="group in dynamicGroups" :key="group.fullPath" class="mt-2">
+      <!-- 动态菜单组 -->
+      <div class="mt-4 space-y-1">
+        <div v-for="group in dynamicGroups" :key="group.fullPath">
+          <!-- 有子菜单的分组 -->
           <div v-if="group.isGroup">
             <button
               type="button"
-              class="group flex h-11 w-full items-center gap-3 rounded-lg px-3 text-[13px] font-medium text-muted-foreground transition-[background,box-shadow,transform] hover:-translate-y-px hover:bg-accent hover:text-foreground hover:shadow-sm"
-              :class="[props.isCollapsed ? 'justify-center px-0' : '']"
+              class="flex h-9 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              :class="[props.isCollapsed ? 'lg:justify-center lg:px-0' : '']"
               :title="props.isCollapsed ? group.title : undefined"
               :aria-expanded="isDynamicGroupOpen(group.fullPath)"
               :aria-controls="toSafeDomId(group.fullPath)"
@@ -224,7 +230,9 @@ watch(
             >
               <AppIcon :icon="group.icon ?? DEFAULT_ICON" class="h-4 w-4" />
 
-              <span v-if="!props.isCollapsed" class="flex-1 text-left">{{ group.title }}</span>
+              <span v-if="!props.isCollapsed" class="flex-1 truncate text-left">{{
+                group.title
+              }}</span>
               <span v-else class="sr-only">{{ group.title }}</span>
 
               <AppIcon
@@ -238,7 +246,8 @@ watch(
             <div
               v-show="isDynamicGroupOpen(group.fullPath)"
               :id="toSafeDomId(group.fullPath)"
-              class="mt-2"
+              class="mt-1 space-y-1"
+              :class="[props.isCollapsed ? '' : 'ml-4 border-l pl-2']"
             >
               <AppMenuTree
                 v-if="group.children.length > 0"
@@ -246,37 +255,37 @@ watch(
                 :parent-path="group.fullPath"
                 :collapsed="props.isCollapsed"
               />
-              <div
-                v-else-if="!props.isCollapsed"
-                class="px-3 py-2 text-[12px] text-muted-foreground"
-              >
+              <div v-else-if="!props.isCollapsed" class="px-2 py-1.5 text-xs text-muted-foreground">
                 暂无子菜单
               </div>
             </div>
           </div>
 
+          <!-- 无子菜单的链接 -->
           <Button
             v-else
             as-child
             variant="ghost"
-            class="h-11 w-full rounded-lg text-[13px] font-medium"
+            class="h-9 w-full justify-start"
             :class="[
-              props.isCollapsed ? 'justify-center px-0' : 'justify-start gap-3 pr-3',
+              props.isCollapsed ? 'lg:justify-center lg:px-0' : 'gap-2',
               isActivePath(group.fullPath)
-                ? 'bg-accent text-foreground shadow-sm'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground hover:shadow-sm',
+                ? 'bg-muted font-medium text-foreground'
+                : 'text-muted-foreground',
             ]"
           >
             <RouterLink
               :to="group.fullPath"
               :title="props.isCollapsed ? group.title : undefined"
               class="flex w-full items-center"
-              :class="[props.isCollapsed ? 'justify-center' : 'gap-3 pl-3']"
+              :class="[props.isCollapsed ? 'justify-center' : 'gap-2 px-2']"
             >
               <AppIcon
                 :icon="group.icon ?? DEFAULT_ICON"
                 class="h-4 w-4"
-                :class="[isActivePath(group.fullPath) ? 'text-primary' : 'text-muted-foreground']"
+                :class="[
+                  isActivePath(group.fullPath) ? 'text-foreground' : 'text-muted-foreground',
+                ]"
               />
               <span v-if="!props.isCollapsed">{{ group.title }}</span>
               <span v-else class="sr-only">{{ group.title }}</span>
@@ -285,7 +294,5 @@ watch(
         </div>
       </div>
     </nav>
-
-    <div class="h-3" />
   </aside>
 </template>

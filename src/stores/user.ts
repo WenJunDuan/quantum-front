@@ -31,6 +31,7 @@ export const useUserStore = defineStore(
     const routers = ref<RouterVO[]>([])
 
     const isUserInfoLoaded = computed(() => profile.value !== null)
+    const areRoutersLoaded = ref(false)
     const areDynamicRoutesReady = ref(false)
 
     const roleSet = computed(() => new Set(roles.value))
@@ -40,16 +41,30 @@ export const useUserStore = defineStore(
       profile.value = info
       roles.value = info?.roles ?? []
       permissions.value = info?.permissions ?? []
-      routers.value = info?.routers ?? []
+
+      const routersFromInfo = info?.routers
+      if (Array.isArray(routersFromInfo) && routersFromInfo.length > 0) {
+        routers.value = routersFromInfo
+        areRoutersLoaded.value = true
+      }
     }
 
     function clearUserInfo() {
-      setUserInfo(null)
+      profile.value = null
+      roles.value = []
+      permissions.value = []
+      routers.value = []
+      areRoutersLoaded.value = false
       areDynamicRoutesReady.value = false
     }
 
     function markDynamicRoutesReady() {
       areDynamicRoutesReady.value = true
+    }
+
+    function setRouters(next: RouterVO[]) {
+      routers.value = Array.isArray(next) ? next : []
+      areRoutersLoaded.value = true
     }
 
     // ==================== 权限判断 ====================
@@ -94,8 +109,10 @@ export const useUserStore = defineStore(
       permissions,
       routers,
       isUserInfoLoaded,
+      areRoutersLoaded,
       areDynamicRoutesReady,
       setUserInfo,
+      setRouters,
       clearUserInfo,
       markDynamicRoutesReady,
 

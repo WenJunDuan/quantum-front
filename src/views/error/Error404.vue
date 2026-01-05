@@ -13,9 +13,11 @@ import backgroundUrl from "@/assets/background.svg?url"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useErrorStore } from "@/stores/error"
+import { useUserStore } from "@/stores/user"
 
 const router = useRouter()
 const errorStore = useErrorStore()
+const userStore = useUserStore()
 const { lastError } = storeToRefs(errorStore)
 
 const message = computed(() => {
@@ -32,6 +34,7 @@ function goHome() {
 }
 
 function goLogin() {
+  userStore.logout()
   router.replace({ name: "login" })
 }
 </script>

@@ -94,6 +94,186 @@ async function clearAuthState() {
   useUserStore().logout()
 }
 
+// ==================== Network Fail-safe ====================
+
+let isClearingAuthOnNetworkError = false
+let lastNetworkAuthClearAt = 0
+const NETWORK_AUTH_CLEAR_THROTTLE_MS = 2000
+
+let consecutiveUnreachableAuthFailures = 0
+let firstUnreachableAuthFailureAt = 0
+
+let offlineLogoutTimerId: number | null = null
+
+function clearOfflineLogoutTimer() {
+  if (offlineLogoutTimerId === null) return
+  globalThis.clearTimeout(offlineLogoutTimerId)
+  offlineLogoutTimerId = null
+}
+
+function resetUnreachableAuthFailureState() {
+  consecutiveUnreachableAuthFailures = 0
+  firstUnreachableAuthFailureAt = 0
+  clearOfflineLogoutTimer()
+}
+
+async function handleOfflineLogoutTimer(startedAt: number) {
+  offlineLogoutTimerId = null
+
+  if (!appConfig.logoutOnNetworkError) {
+    resetUnreachableAuthFailureState()
+    return
+  }
+
+  const userStore = useUserStore()
+  const token = userStore.accessToken
+  if (
+    !token ||
+    consecutiveUnreachableAuthFailures === 0 ||
+    firstUnreachableAuthFailureAt !== startedAt
+  ) {
+    resetUnreachableAuthFailureState()
+    return
+  }
+
+  let logoutMessage = `服务不可用（离线超过 ${appConfig.logoutOnNetworkErrorMaxOfflineSeconds}s），登录状态已清除`
+  try {
+    const res = await axios.get<unknown>(`${appConfig.apiBaseUrl}/auth/info`, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 8000,
+      validateStatus: () => true,
+    })
+
+    const status = res.status
+    const data = res.data
+    const isUnauthorized =
+      status === 401 ||
+      status === 403 ||
+      (isBackendEnvelope(data) &&
+        (data.code === ResultCode.UNAUTHORIZED || data.code === ResultCode.ACCESS_DENIED))
+
+    if (!isUnauthorized) {
+      resetUnreachableAuthFailureState()
+      return
+    }
+
+    logoutMessage = "登录已过期，请重新登录"
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      resetUnreachableAuthFailureState()
+      return
+    }
+  }
+
+  const now = Date.now()
+  if (
+    isClearingAuthOnNetworkError ||
+    now - lastNetworkAuthClearAt < NETWORK_AUTH_CLEAR_THROTTLE_MS
+  ) {
+    return
+  }
+
+  isClearingAuthOnNetworkError = true
+  lastNetworkAuthClearAt = now
+  try {
+    await clearAuthState()
+    resetUnreachableAuthFailureState()
+    showError(logoutMessage)
+    redirectToLogin()
+  } finally {
+    isClearingAuthOnNetworkError = false
+  }
+}
+
+function scheduleOfflineLogoutTimer(startedAt: number) {
+  const delayMs = appConfig.logoutOnNetworkErrorMaxOfflineSeconds * 1000
+  if (delayMs <= 0) return
+  if (offlineLogoutTimerId !== null) return
+
+  offlineLogoutTimerId = globalThis.setTimeout(() => {
+    void handleOfflineLogoutTimer(startedAt)
+  }, delayMs)
+}
+
+function isLogoutWorthyNetworkError(error: AxiosError<unknown>) {
+  if (error.response) return false
+  if (error.code === "ERR_CANCELED") return false
+  if (error.code === "ECONNABORTED") return false
+  return true
+}
+
+function shouldClearAuthByNetworkPolicy(now: number) {
+  const maxConsecutive = appConfig.logoutOnNetworkErrorMaxConsecutive
+  const maxOfflineMs = appConfig.logoutOnNetworkErrorMaxOfflineSeconds * 1000
+
+  if (consecutiveUnreachableAuthFailures >= maxConsecutive) {
+    return { shouldClear: true, reason: "count" as const }
+  }
+
+  if (firstUnreachableAuthFailureAt > 0 && now - firstUnreachableAuthFailureAt >= maxOfflineMs) {
+    return { shouldClear: true, reason: "offline" as const }
+  }
+
+  return { shouldClear: false as const }
+}
+
+async function maybeLogoutOnNetworkError(config?: InternalAxiosRequestConfig): Promise<boolean> {
+  if (!appConfig.logoutOnNetworkError) return false
+  if (!config) return false
+
+  const meta = (config as RequestConfig).meta
+  if (meta?.skipAuth) return false
+
+  const userStore = useUserStore()
+  if (!userStore.accessToken) {
+    resetUnreachableAuthFailureState()
+    return false
+  }
+
+  const now = Date.now()
+  if (
+    isClearingAuthOnNetworkError ||
+    now - lastNetworkAuthClearAt < NETWORK_AUTH_CLEAR_THROTTLE_MS
+  ) {
+    return true
+  }
+
+  if (consecutiveUnreachableAuthFailures === 0) {
+    firstUnreachableAuthFailureAt = now
+    scheduleOfflineLogoutTimer(now)
+  }
+  consecutiveUnreachableAuthFailures += 1
+
+  const policy = shouldClearAuthByNetworkPolicy(now)
+  if (!policy.shouldClear) {
+    if (!meta?.skipErrorToast && consecutiveUnreachableAuthFailures === 1) {
+      showError(
+        `服务不可用（1/${appConfig.logoutOnNetworkErrorMaxConsecutive}），持续离线 ${appConfig.logoutOnNetworkErrorMaxOfflineSeconds}s 将退出登录`,
+      )
+    }
+    return true
+  }
+
+  isClearingAuthOnNetworkError = true
+  lastNetworkAuthClearAt = now
+  try {
+    await clearAuthState()
+    resetUnreachableAuthFailureState()
+
+    if (!meta?.skipErrorToast) {
+      const reasonText =
+        policy.reason === "count"
+          ? `连续失败达到 ${appConfig.logoutOnNetworkErrorMaxConsecutive} 次`
+          : `离线超过 ${appConfig.logoutOnNetworkErrorMaxOfflineSeconds}s`
+      showError(`服务不可用（${reasonText}），登录状态已清除`)
+    }
+    if (shouldRedirectOnUnauthorized(config)) redirectToLogin()
+    return true
+  } finally {
+    isClearingAuthOnNetworkError = false
+  }
+}
+
 // ==================== Token 刷新 ====================
 
 let isRefreshing = false
@@ -303,6 +483,7 @@ instance.interceptors.request.use((config) => {
 // 响应拦截
 instance.interceptors.response.use(
   (response) => {
+    resetUnreachableAuthFailureState()
     const data = response.data
 
     // 非标准响应
@@ -324,10 +505,12 @@ instance.interceptors.response.use(
       new ApiError(data.code, getEnvelopeMessage(data), getEnvelopeTraceId(data)),
     )
   },
-  (error: AxiosError<unknown>) => {
+  async (error: AxiosError<unknown>) => {
     const config = error.config as RetryableRequestConfig | undefined
     const status = error.response?.status
     const data = error.response?.data
+
+    if (error.response) resetUnreachableAuthFailureState()
 
     // HTTP 401
     if (
@@ -341,15 +524,23 @@ instance.interceptors.response.use(
     if (isBackendEnvelope(data)) {
       if (!(config as RequestConfig | undefined)?.meta?.skipErrorToast)
         showError(getEnvelopeMessage(data))
-      return Promise.reject(
-        new ApiError(data.code, getEnvelopeMessage(data), getEnvelopeTraceId(data)),
-      )
+      throw new ApiError(data.code, getEnvelopeMessage(data), getEnvelopeTraceId(data))
     }
 
     // 网络错误
-    const msg = getDefaultResultMessage(status ?? 500)
-    if (!(config as RequestConfig | undefined)?.meta?.skipErrorToast) showError(msg)
-    return Promise.reject(new ApiError(status ?? 500, msg))
+    const meta = (config as RequestConfig | undefined)?.meta
+    const isNetworkError = !error.response
+    const resolvedCode = status ?? (isNetworkError ? ResultCode.SERVICE_UNAVAILABLE : 500)
+    const msg = getDefaultResultMessage(resolvedCode)
+
+    if (isLogoutWorthyNetworkError(error)) {
+      const handled = await maybeLogoutOnNetworkError(config)
+      if (!handled && !meta?.skipErrorToast) showError(msg)
+      throw new ApiError(resolvedCode, msg)
+    }
+
+    if (!meta?.skipErrorToast) showError(msg)
+    throw new ApiError(resolvedCode, msg)
   },
 )
 

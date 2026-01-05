@@ -8,6 +8,7 @@ import { createRouter, createWebHistory } from "vue-router"
 import "nprogress/nprogress.css"
 
 import { getUserInfo } from "@/api/auth"
+import { getUserRouters } from "@/api/system/menu"
 import { appConfig } from "@/config/app"
 import { registerDynamicRoutes, resetDynamicRoutes } from "@/router/dynamic"
 import { setAppRouter } from "@/router/navigation"
@@ -15,6 +16,8 @@ import { useNotifyStore } from "@/stores/notify"
 import { useUserStore } from "@/stores/user"
 
 NProgress.configure({ showSpinner: false })
+
+let didBootstrapSession = false
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -101,6 +104,14 @@ router.beforeEach(async (to) => {
 
   // ========== 未登录处理 ==========
   const token = userStore.accessToken
+
+  // ========== 会话启动时：清理可能残留的用户信息/菜单状态 ==========
+  // NOTE: 动态路由不会跨刷新持久化；即使 storage 里残留旧字段，也应强制重新拉取。
+  if (token && !didBootstrapSession) {
+    didBootstrapSession = true
+    userStore.clearUserInfo()
+  }
+
   if (!token) {
     resetDynamicRoutes(router)
     userStore.logout()
@@ -139,6 +150,21 @@ router.beforeEach(async (to) => {
 
   // ========== 注册动态路由 ==========
   if (!userStore.areDynamicRoutesReady) {
+    if (!userStore.areRoutersLoaded || userStore.routers.length === 0) {
+      try {
+        const routers = await getUserRouters()
+        userStore.setRouters(routers)
+      } catch (error) {
+        console.error("[Router] Failed to get routers:", error)
+        userStore.logout()
+        notify.error("获取菜单失败，请重新登录")
+        return {
+          name: "login",
+          query: { redirect: to.fullPath },
+        }
+      }
+    }
+
     registerDynamicRoutes(router, "root", userStore.routers)
     userStore.markDynamicRoutesReady()
     return { path: to.fullPath, replace: true }

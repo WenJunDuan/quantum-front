@@ -19,6 +19,6 @@ function onResetPassword() {
 <template>
   <div class="space-y-4">
     <div class="text-[13px] text-muted-foreground">账号设置建设中。</div>
-    <Button type="button" variant="outline" class="h-11" @click="onResetPassword">重置密码</Button>
+    <Button type="button" variant="outline" @click="onResetPassword">重置密码</Button>
   </div>
 </template>

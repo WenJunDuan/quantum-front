@@ -119,11 +119,11 @@ function save() {
         </div>
       </div>
 
-      <Button type="button" variant="outline" class="h-11" @click="addUrl">添加链接</Button>
+      <Button type="button" variant="outline" @click="addUrl">添加链接</Button>
     </div>
 
     <div>
-      <Button type="button" class="h-11" @click="save">更新个人信息</Button>
+      <Button type="button" @click="save">更新个人信息</Button>
     </div>
   </div>
 </template>

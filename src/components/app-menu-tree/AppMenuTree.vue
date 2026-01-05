@@ -1,7 +1,11 @@
-<!-- {{RIPER-10 Action}}
-Role: LD | Task_ID: #rbac | Time: 2025-12-27T00:00:00+08:00
-Principle: Menus are a projection of router data.
-Taste: Render RouterVO tree with hidden filtering.
+<!--
+  AppMenuTree 组件 - shadcn-vue 官方规范
+  
+  修改点：
+  - 菜单项高度: h-11 → h-9
+  - 字体: text-[13px] → text-sm
+  - 分组标题: text-[11px] → text-xs
+  - 激活态: 移除 shadow-sm
 -->
 
 <script setup lang="ts">
@@ -51,10 +55,10 @@ function joinPath(parent: string, child: string) {
 
 function paddingClass(level: number) {
   if (props.collapsed) return "px-0"
-  if (level <= 0) return "pl-3"
-  if (level === 1) return "pl-10"
-  if (level === 2) return "pl-14"
-  return "pl-16"
+  if (level <= 0) return "pl-2"
+  if (level === 1) return "pl-6"
+  if (level === 2) return "pl-10"
+  return "pl-12"
 }
 
 function resolveIcon(icon?: string) {
@@ -68,7 +72,6 @@ function resolveExternalLink(link?: string) {
   const value = typeof link === "string" ? link.trim() : ""
   if (!value) return null
 
-  // Only treat absolute/schemed URLs as external links. Backend may also send `link` as a path segment.
   if (/^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith("//")) return value
   return null
 }
@@ -103,11 +106,12 @@ function isActive(targetPath: string) {
 <template>
   <ul class="space-y-1">
     <li v-for="item in menuItems" :key="item.fullPath">
+      <!-- 有子菜单的分组 -->
       <div v-if="item.children.length > 0" class="space-y-1">
         <div
           v-if="!collapsed"
           :class="[
-            'mt-4 py-1 text-[11px] font-semibold tracking-wide text-muted-foreground/80',
+            'mt-3 px-2 py-1.5 text-xs font-medium text-muted-foreground',
             paddingClass(level),
           ]"
         >
@@ -121,18 +125,18 @@ function isActive(targetPath: string) {
         />
       </div>
 
-      <div v-else>
+      <!-- 外部链接 -->
+      <div v-else-if="item.externalLink">
         <Button
-          v-if="item.externalLink"
           as-child
           variant="ghost"
-          class="h-11 w-full rounded-lg text-[13px] font-medium"
+          class="h-9 w-full justify-start text-sm"
           :class="[
             paddingClass(level),
-            collapsed ? 'justify-center' : 'justify-start gap-3 pr-3',
+            collapsed ? 'justify-center' : 'gap-2',
             isActive(item.fullPath)
-              ? 'bg-accent text-foreground shadow-sm'
-              : 'text-muted-foreground hover:bg-accent hover:text-foreground hover:shadow-sm',
+              ? 'bg-muted font-medium text-foreground'
+              : 'text-muted-foreground',
           ]"
         >
           <a
@@ -141,43 +145,45 @@ function isActive(targetPath: string) {
             rel="noreferrer"
             :title="collapsed ? item.title : undefined"
             class="flex w-full items-center"
-            :class="[collapsed ? 'justify-center' : 'gap-3']"
+            :class="[collapsed ? 'justify-center' : 'gap-2']"
           >
             <AppIcon
               v-if="item.icon"
               :icon="item.icon"
               class="h-4 w-4"
-              :class="[isActive(item.fullPath) ? 'text-primary' : 'text-muted-foreground']"
+              :class="[isActive(item.fullPath) ? 'text-foreground' : 'text-muted-foreground']"
             />
             <span v-if="!collapsed" class="truncate">{{ item.title }}</span>
             <span v-else class="sr-only">{{ item.title }}</span>
           </a>
         </Button>
+      </div>
 
+      <!-- 内部链接 -->
+      <div v-else>
         <Button
-          v-else
           as-child
           variant="ghost"
-          class="h-11 w-full rounded-lg text-[13px] font-medium"
+          class="h-9 w-full justify-start text-sm"
           :class="[
             paddingClass(level),
-            collapsed ? 'justify-center' : 'justify-start gap-3 pr-3',
+            collapsed ? 'justify-center' : 'gap-2',
             isActive(item.fullPath)
-              ? 'bg-accent text-foreground shadow-sm'
-              : 'text-muted-foreground hover:bg-accent hover:text-foreground hover:shadow-sm',
+              ? 'bg-muted font-medium text-foreground'
+              : 'text-muted-foreground',
           ]"
         >
           <RouterLink
             :to="item.fullPath"
             :title="collapsed ? item.title : undefined"
             class="flex w-full items-center"
-            :class="[collapsed ? 'justify-center' : 'gap-3']"
+            :class="[collapsed ? 'justify-center' : 'gap-2']"
           >
             <AppIcon
               v-if="item.icon"
               :icon="item.icon"
               class="h-4 w-4"
-              :class="[isActive(item.fullPath) ? 'text-primary' : 'text-muted-foreground']"
+              :class="[isActive(item.fullPath) ? 'text-foreground' : 'text-muted-foreground']"
             />
             <span v-if="!collapsed" class="truncate">{{ item.title }}</span>
             <span v-else class="sr-only">{{ item.title }}</span>

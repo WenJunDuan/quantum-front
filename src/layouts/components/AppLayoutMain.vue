@@ -13,9 +13,7 @@ const tabsStore = useTabsStore()
 </script>
 
 <template>
-  <main
-    class="min-h-0 flex-1 overflow-auto bg-background p-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-  >
+  <main class="min-h-0 flex-1 overflow-auto bg-background p-3">
     <div class="min-h-full rounded-xl bg-card p-4">
       <RouterView v-slot="{ Component, route: viewRoute }">
         <component

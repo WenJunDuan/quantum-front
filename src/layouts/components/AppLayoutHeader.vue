@@ -1,7 +1,14 @@
-<!-- {{RIPER-10 Action}}
-Role: LD | Task_ID: #layout-split | Time: 2025-12-29T00:00:00+08:00
-Principle: Layout is composition; keep pieces small.
-Taste: Header is frosted, elevated, and content-first.
+<!--
+  Header 组件 - shadcn-vue 官方规范
+  
+  修改点：
+  - Header 背景: 简化毛玻璃效果
+  - 搜索框: h-11 → h-9, 移除 rounded-full
+  - 工具按钮: h-11 w-11 → h-9 w-9
+  - 下拉面板: 简化样式，减小圆角
+  - 菜单项高度: h-11 → h-8
+  - 字体: 统一使用 text-sm, text-xs
+  - 选项卡: 简化为标准样式
 -->
 
 <script setup lang="ts">
@@ -416,10 +423,10 @@ const tabActionsButtonRef = ref<HTMLButtonElement | null>(null)
 const tabMenuPanelRef = ref<HTMLDivElement | null>(null)
 let tabMenuCloseTimer: number | null = null
 
-const TAB_MENU_WIDTH = 176
-const TAB_MENU_HEIGHT = 192
+const TAB_MENU_WIDTH = 160
+const TAB_MENU_HEIGHT = 160
 const TAB_MENU_PADDING = 8
-const TAB_MENU_OFFSET = 8
+const TAB_MENU_OFFSET = 4
 
 function clearTabMenuCloseTimer() {
   if (tabMenuCloseTimer === null) return
@@ -532,10 +539,6 @@ function closeAllTabs() {
   if (next && next !== route.fullPath) void router.push(next)
 }
 
-function shouldShowTabTooltip(title: string) {
-  return title.trim().length > 10
-}
-
 function onDocumentPointerDown(event: PointerEvent) {
   const target = event.target as Node | null
   if (!target) return
@@ -608,15 +611,16 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="sticky top-0 z-30 border-b border-foreground/5 bg-card/70 shadow-sm backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-card/60"
+    class="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
   >
-    <header class="bg-transparent">
-      <div class="flex h-14 items-center justify-between gap-3 px-4 sm:px-6">
-        <div class="flex min-w-0 items-center gap-1">
+    <header>
+      <div class="flex h-14 items-center justify-between gap-4 px-4 lg:px-6">
+        <!-- 左侧：菜单按钮 + 面包屑 -->
+        <div class="flex min-w-0 items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
-            class="rounded-full lg:hidden"
+            class="lg:hidden"
             aria-label="Open sidebar"
             @click="emit('openSidebar')"
           >
@@ -626,7 +630,7 @@ onUnmounted(() => {
           <Button
             variant="ghost"
             size="icon"
-            class="-ml-2 hidden rounded-full lg:inline-flex"
+            class="hidden lg:inline-flex"
             :aria-label="props.isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
             @click="emit('toggleSidebarCollapsed')"
           >
@@ -640,73 +644,55 @@ onUnmounted(() => {
             />
           </Button>
 
-          <Separator class="hidden h-6 opacity-60 md:block" orientation="vertical" />
+          <Separator class="hidden h-6 md:block" orientation="vertical" />
 
+          <!-- 移动端标题 -->
           <div class="min-w-0 md:hidden">
-            <div class="truncate text-sm font-semibold tracking-tight">{{ pageTitle }}</div>
+            <div class="truncate text-sm font-medium">{{ pageTitle }}</div>
           </div>
 
-          <nav
-            class="hidden min-w-0 items-center gap-1 overflow-x-auto md:-ml-2 md:flex"
-            aria-label="Breadcrumb"
-          >
+          <!-- 桌面端面包屑 -->
+          <nav class="hidden min-w-0 items-center gap-1 md:flex" aria-label="Breadcrumb">
             <template
               v-for="(crumb, index) in breadcrumbs"
               :key="`${crumb.label}-${crumb.to ?? index}`"
             >
-              <span v-if="index > 0" class="flex h-11 items-center text-muted-foreground/60"
-                >/</span
-              >
+              <span v-if="index > 0" class="text-muted-foreground">/</span>
 
               <RouterLink
                 v-if="crumb.to"
                 :to="crumb.to"
-                class="group inline-flex h-11 items-center rounded-full px-2 text-[13px] text-muted-foreground transition-[transform,box-shadow,color,background] hover:-translate-y-px hover:bg-accent/60 hover:text-foreground hover:shadow-sm"
+                class="rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                <AppIcon
-                  v-if="index === 0"
-                  icon="radix-icons:home"
-                  class="mr-1.5 h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground"
-                />
-                <span class="max-w-[16rem] truncate">{{ crumb.label }}</span>
+                <span class="max-w-[12rem] truncate">{{ crumb.label }}</span>
               </RouterLink>
 
-              <span
-                v-else
-                class="inline-flex h-11 items-center rounded-full px-2 text-[13px] font-medium text-foreground"
-              >
-                <AppIcon
-                  v-if="index === 0"
-                  icon="radix-icons:home"
-                  class="mr-1.5 h-4 w-4 text-muted-foreground"
-                />
-                <span class="max-w-[18rem] truncate">{{ crumb.label }}</span>
+              <span v-else class="px-2 py-1 text-sm font-medium text-foreground">
+                <span class="max-w-[14rem] truncate">{{ crumb.label }}</span>
               </span>
             </template>
           </nav>
         </div>
 
+        <!-- 右侧：搜索 + 工具栏 -->
         <div class="flex items-center gap-2">
+          <!-- 搜索按钮 -->
           <button
             type="button"
-            class="group relative hidden h-11 w-72 items-center gap-2 rounded-full bg-background/60 px-4 text-[13px] text-muted-foreground ring-1 ring-foreground/5 transition-[background,box-shadow,transform] hover:-translate-y-px hover:bg-background/70 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:flex"
+            class="hidden h-9 w-64 items-center gap-2 rounded-md border border-input bg-transparent px-3 text-sm text-muted-foreground shadow-sm transition-colors hover:bg-accent md:flex"
             aria-label="Search"
             @click="openSearchPalette"
           >
-            <AppIcon icon="radix-icons:magnifying-glass" class="h-4 w-4 text-muted-foreground" />
-            <span class="min-w-0 flex-1 truncate text-left">搜索页面 / 快速导航</span>
-            <kbd
-              class="rounded-md bg-background/60 px-1.5 py-0.5 text-[10px] text-muted-foreground ring-1 ring-foreground/10"
-            >
-              ⌘ K
-            </kbd>
+            <AppIcon icon="radix-icons:magnifying-glass" class="h-4 w-4" />
+            <span class="flex-1 truncate text-left">搜索...</span>
+            <kbd class="rounded border bg-muted px-1.5 py-0.5 text-xs">⌘K</kbd>
           </button>
 
-          <button
-            type="button"
-            class="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-[background,box-shadow,color,transform] hover:-translate-y-px hover:bg-accent hover:text-foreground hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          <!-- 全屏按钮 -->
+          <Button
+            variant="ghost"
+            size="icon"
             :title="isFullscreen ? '退出全屏' : '进入全屏'"
-            :aria-label="isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'"
             @click="toggleFullscreen"
           >
             <AppIcon
@@ -715,13 +701,14 @@ onUnmounted(() => {
               "
               class="h-4 w-4"
             />
-          </button>
+          </Button>
 
+          <!-- 用户菜单 -->
           <div class="relative">
             <button
               ref="userMenuButtonRef"
               type="button"
-              class="flex h-11 items-center gap-2 rounded-full px-2 text-[13px] font-medium tracking-tight transition-[background,box-shadow,transform] hover:-translate-y-px hover:bg-accent hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              class="flex h-9 items-center gap-2 rounded-md px-2 text-sm font-medium transition-colors hover:bg-accent"
               aria-label="User menu"
               aria-haspopup="menu"
               :aria-expanded="isUserMenuOpen"
@@ -730,54 +717,50 @@ onUnmounted(() => {
               <img
                 :src="avatarSrc"
                 alt="Avatar"
-                class="h-9 w-9 rounded-full object-cover"
+                class="h-7 w-7 rounded-full object-cover"
                 @error="onAvatarError"
               />
-              <div class="hidden min-w-0 sm:block">
-                <div class="max-w-[10rem] truncate">{{ displayName }}</div>
-              </div>
+              <span class="hidden max-w-[8rem] truncate sm:block">{{ displayName }}</span>
               <AppIcon icon="radix-icons:chevron-down" class="h-4 w-4 text-muted-foreground" />
             </button>
 
-            <transition
-              enter-active-class="transition duration-[var(--motion-duration)] ease-[var(--motion-ease-spring)]"
-              leave-active-class="transition duration-[var(--motion-duration-fast)] ease-[var(--motion-ease)]"
-              enter-from-class="opacity-0 translate-y-1 scale-[0.98]"
-              enter-to-class="opacity-100 translate-y-0 scale-100"
-              leave-from-class="opacity-100 translate-y-0 scale-100"
-              leave-to-class="opacity-0 translate-y-1 scale-[0.98]"
+            <!-- 用户下拉面板 -->
+            <Transition
+              enter-active-class="transition duration-150 ease-out"
+              leave-active-class="transition duration-100 ease-in"
+              enter-from-class="opacity-0 scale-95"
+              enter-to-class="opacity-100 scale-100"
+              leave-from-class="opacity-100 scale-100"
+              leave-to-class="opacity-0 scale-95"
             >
               <div
                 v-show="isUserMenuOpen"
                 ref="userMenuPanelRef"
-                class="absolute top-[calc(100%+0.5rem)] right-0 z-50 w-72 origin-top-right rounded-xl bg-popover/75 p-1 shadow-lg ring-1 ring-foreground/5 backdrop-blur-xl backdrop-saturate-150 will-change-transform supports-[backdrop-filter]:bg-popover/65"
+                class="absolute top-[calc(100%+0.25rem)] right-0 z-50 w-56 origin-top-right rounded-md border bg-popover p-1 shadow-md"
                 role="menu"
-                aria-label="User menu"
               >
-                <div class="flex items-center gap-3 rounded-xl px-3 py-2">
+                <!-- 用户信息 -->
+                <div class="flex items-center gap-3 px-2 py-2">
                   <img
                     :src="avatarSrc"
                     alt="Avatar"
-                    class="h-10 w-10 rounded-full object-cover"
+                    class="h-9 w-9 rounded-full object-cover"
                     @error="onAvatarError"
                   />
                   <div class="min-w-0">
-                    <div class="truncate text-[13px] font-medium">{{ displayName }}</div>
-                    <div class="truncate text-[11px] text-muted-foreground">{{ userSubline }}</div>
+                    <div class="truncate text-sm font-medium">{{ displayName }}</div>
+                    <div class="truncate text-xs text-muted-foreground">{{ userSubline }}</div>
                   </div>
                 </div>
 
-                <Separator class="my-1 opacity-50" />
+                <Separator class="my-1" />
 
-                <div
-                  class="px-2 pt-1 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground/80"
-                >
-                  主题设置
-                </div>
+                <!-- 主题设置 -->
+                <div class="px-2 py-1 text-xs font-medium text-muted-foreground">主题设置</div>
 
                 <button
                   type="button"
-                  class="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-[13px] hover:bg-accent"
+                  class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent"
                   role="menuitem"
                   @click="toggleThemeFromMenu"
                 >
@@ -786,38 +769,36 @@ onUnmounted(() => {
                     class="h-4 w-4 text-muted-foreground"
                   />
                   <span>主题</span>
-                  <span class="ml-auto text-[11px] text-muted-foreground">
+                  <span class="ml-auto text-xs text-muted-foreground">
                     {{ preference === "auto" ? "自动" : isDark ? "深色" : "浅色" }}
                   </span>
                 </button>
 
                 <button
                   type="button"
-                  class="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-[13px] hover:bg-accent"
+                  class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent"
                   role="menuitem"
                   @click="toggleTabsFromMenu"
                 >
                   <AppIcon icon="radix-icons:stack" class="h-4 w-4 text-muted-foreground" />
                   <span>标签页</span>
-                  <span class="ml-auto text-[11px] text-muted-foreground">
-                    {{ tabsEnabled ? "开启" : "关闭" }}
-                  </span>
+                  <span class="ml-auto text-xs text-muted-foreground">{{
+                    tabsEnabled ? "开启" : "关闭"
+                  }}</span>
                 </button>
 
-                <div class="px-3 pt-2 pb-2">
-                  <div class="flex items-center justify-between px-1">
-                    <div class="text-[11px] font-semibold tracking-wide text-muted-foreground/80">
-                      主题色
-                    </div>
-                    <div class="text-[11px] text-muted-foreground">{{ accentLabel }}</div>
+                <!-- 主题色选择 -->
+                <div class="px-2 pt-2 pb-1">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-muted-foreground">主题色</span>
+                    <span class="text-xs text-muted-foreground">{{ accentLabel }}</span>
                   </div>
-
-                  <div class="mt-2 grid grid-cols-5 gap-2">
+                  <div class="mt-2 grid grid-cols-5 gap-1.5">
                     <button
                       v-for="option in accentOptions"
                       :key="option.key"
                       type="button"
-                      class="relative grid h-11 w-11 place-items-center rounded-xl ring-1 ring-foreground/10 transition-[transform,box-shadow] hover:-translate-y-px hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      class="relative grid h-8 w-8 place-items-center rounded-md ring-1 ring-border transition-colors hover:ring-2 hover:ring-ring"
                       :class="[option.key === accentKey ? 'ring-2 ring-ring' : '']"
                       :aria-label="
                         option.key === 'custom' ? '自定义主题色' : `主题色：${option.label}`
@@ -834,38 +815,32 @@ onUnmounted(() => {
                         @input="onCustomAccentInput"
                       />
                       <span
-                        class="relative h-5 w-5 rounded-full ring-1 ring-foreground/15"
+                        class="h-4 w-4 rounded-full ring-1 ring-border"
                         :style="
                           option.key === 'custom'
                             ? { backgroundImage: CUSTOM_SWATCH_GRADIENT }
                             : { backgroundColor: swatchColor(option.light, option.dark) }
                         "
-                      >
-                        <span
-                          v-if="option.key === 'custom'"
-                          class="absolute right-0.5 bottom-0.5 h-2 w-2 rounded-full ring-1 ring-foreground/25"
-                          :style="{ backgroundColor: customColor }"
-                        />
-                      </span>
+                      />
                     </button>
                   </div>
                 </div>
 
-                <Separator class="my-1 opacity-50" />
+                <Separator class="my-1" />
 
                 <button
                   type="button"
-                  class="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-[13px] hover:bg-accent"
+                  class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent"
                   role="menuitem"
                   @click="openProfile"
                 >
                   <AppIcon icon="radix-icons:person" class="h-4 w-4 text-muted-foreground" />
-                  <span>修改个人信息</span>
+                  <span>个人信息</span>
                 </button>
 
                 <button
                   type="button"
-                  class="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+                  class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent disabled:opacity-50"
                   role="menuitem"
                   :disabled="isLoggingOut"
                   @click="logoutFromMenu"
@@ -874,107 +849,91 @@ onUnmounted(() => {
                   <span>{{ isLoggingOut ? "退出中..." : "退出登录" }}</span>
                 </button>
               </div>
-            </transition>
+            </Transition>
           </div>
         </div>
       </div>
     </header>
 
-    <div
-      v-if="tabsEnabled && openedTabs.length > 0"
-      class="relative border-t border-foreground/5 bg-card/45 backdrop-blur-2xl backdrop-saturate-200 after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-primary/20 after:content-[''] supports-[backdrop-filter]:bg-card/35"
-    >
-      <div class="relative flex h-11 items-end px-2 sm:px-3">
-        <div
-          class="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto pr-12 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <div
+    <!-- 选项卡栏 -->
+    <div v-if="tabsEnabled && openedTabs.length > 0" class="border-t bg-muted/40">
+      <div class="flex h-10 items-center gap-1 px-2">
+        <!-- 选项卡列表 -->
+        <div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          <button
             v-for="tab in openedTabs"
             :key="tab.key"
-            class="group relative inline-flex h-[34px] shrink-0 items-center gap-2 rounded-t-2xl rounded-b-none px-4 text-[12px] leading-none font-medium transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] [--tab-curve:transparent] before:pointer-events-none before:absolute before:bottom-0 before:-left-2 before:h-2 before:w-2 before:rounded-br-lg before:bg-transparent before:opacity-0 before:[box-shadow:2px_2px_0_2px_var(--tab-curve)] before:transition-opacity before:duration-150 before:ease-[cubic-bezier(0.22,1,0.36,1)] before:content-[''] after:pointer-events-none after:absolute after:-right-2 after:bottom-0 after:h-2 after:w-2 after:rounded-bl-lg after:bg-transparent after:opacity-0 after:[box-shadow:-2px_2px_0_2px_var(--tab-curve)] after:transition-opacity after:duration-150 after:ease-[cubic-bezier(0.22,1,0.36,1)] after:content-['']"
+            type="button"
+            class="group inline-flex h-8 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors"
             :class="[
               tab.key === activeTabKey
-                ? 'z-10 bg-primary/10 text-primary [--tab-curve:color-mix(in_oklab,var(--primary)_10%,transparent)] before:opacity-100 after:opacity-100'
-                : 'text-muted-foreground hover:z-10 hover:bg-accent hover:text-foreground hover:[--tab-curve:var(--accent)] hover:before:opacity-100 hover:after:opacity-100',
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground',
             ]"
             :title="tab.title"
+            @click="activateTab(tab)"
             @contextmenu.prevent="openTabMenuFromContext($event, tab)"
           >
-            <div
-              v-if="shouldShowTabTooltip(tab.title)"
-              class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 rounded-lg bg-popover/75 px-3 py-1.5 text-[12px] whitespace-nowrap text-foreground shadow-lg ring-1 ring-foreground/5 backdrop-blur-xl backdrop-saturate-150 group-hover:block supports-[backdrop-filter]:bg-popover/65"
-            >
-              {{ tab.title }}
-            </div>
+            <AppIcon
+              v-if="tab.key === '/'"
+              icon="radix-icons:home"
+              class="h-3.5 w-3.5"
+              :class="[tab.key === activeTabKey ? 'text-foreground' : 'text-muted-foreground']"
+            />
+            <span class="max-w-[8rem] truncate">{{ tab.title }}</span>
 
             <button
               type="button"
-              class="flex min-w-0 flex-1 items-center gap-2 text-left"
-              :title="tab.title"
-              @click="activateTab(tab)"
-            >
-              <AppIcon
-                v-if="tab.key === '/'"
-                icon="radix-icons:home"
-                class="h-3.5 w-3.5 shrink-0"
-                :class="[tab.key === activeTabKey ? 'text-primary' : 'text-muted-foreground']"
-              />
-              <span class="block max-w-[9.5rem] min-w-0 truncate">{{ tab.title }}</span>
-            </button>
-
-            <button
-              type="button"
-              class="grid h-5 w-5 place-items-center rounded-full text-muted-foreground/70 transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-30"
+              class="grid h-4 w-4 place-items-center rounded text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted hover:text-foreground"
+              :class="[tab.key === activeTabKey ? 'opacity-100' : '']"
               aria-label="Close tab"
               :disabled="openedTabs.length <= 1 || tab.closable !== true"
               @click.stop="closeTabByKey(tab.key)"
             >
-              <AppIcon icon="radix-icons:cross-1" class="h-3.5 w-3.5" />
+              <AppIcon icon="radix-icons:cross-1" class="h-3 w-3" />
             </button>
-          </div>
-        </div>
-
-        <div class="absolute top-1/2 right-2 z-20 -translate-y-1/2">
-          <button
-            ref="tabActionsButtonRef"
-            type="button"
-            class="grid h-8 w-8 place-items-center rounded-full bg-card/60 text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            :class="[tabMenuOpen ? 'bg-primary/10 text-primary' : '']"
-            aria-label="Tab actions"
-            aria-haspopup="menu"
-            :aria-expanded="tabMenuOpen"
-            @click="toggleTabActionsMenu($event)"
-            @pointerenter="onTabActionsPointerEnter($event)"
-            @pointerleave="onTabActionsPointerLeave"
-          >
-            <AppIcon icon="radix-icons:dots-horizontal" class="h-4 w-4" />
           </button>
         </div>
+
+        <!-- 选项卡操作按钮 -->
+        <Button
+          ref="tabActionsButtonRef"
+          variant="ghost"
+          size="icon"
+          class="h-8 w-8 shrink-0"
+          :class="[tabMenuOpen ? 'bg-accent' : '']"
+          aria-label="Tab actions"
+          @click="toggleTabActionsMenu($event)"
+          @pointerenter="onTabActionsPointerEnter($event)"
+          @pointerleave="onTabActionsPointerLeave"
+        >
+          <AppIcon icon="radix-icons:dots-horizontal" class="h-4 w-4" />
+        </Button>
       </div>
     </div>
   </div>
 
-  <transition
-    enter-active-class="transition duration-[var(--motion-duration)] ease-[var(--motion-ease-spring)]"
-    leave-active-class="transition duration-[var(--motion-duration-fast)] ease-[var(--motion-ease)]"
-    enter-from-class="opacity-0 translate-y-1 scale-[0.98]"
-    enter-to-class="opacity-100 translate-y-0 scale-100"
-    leave-from-class="opacity-100 translate-y-0 scale-100"
-    leave-to-class="opacity-0 translate-y-1 scale-[0.98]"
+  <!-- 选项卡右键菜单 -->
+  <Transition
+    enter-active-class="transition duration-150 ease-out"
+    leave-active-class="transition duration-100 ease-in"
+    enter-from-class="opacity-0 scale-95"
+    enter-to-class="opacity-100 scale-100"
+    leave-from-class="opacity-100 scale-100"
+    leave-to-class="opacity-0 scale-95"
   >
     <div
       v-show="tabMenuOpen"
       ref="tabMenuPanelRef"
-      class="fixed z-[60] w-[176px] origin-top-left rounded-xl bg-popover/75 p-1 shadow-lg ring-1 ring-foreground/5 backdrop-blur-xl backdrop-saturate-150 will-change-transform supports-[backdrop-filter]:bg-popover/65"
+      class="fixed z-[60] w-40 origin-top-left rounded-md border bg-popover p-1 shadow-md"
       role="menu"
-      aria-label="Tab menu"
       :style="{ left: `${tabMenuX}px`, top: `${tabMenuY}px` }"
       @pointerenter="clearTabMenuCloseTimer"
       @pointerleave="onTabActionsPointerLeave"
     >
       <button
         type="button"
-        class="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-[13px] hover:bg-accent"
+        class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent"
         role="menuitem"
         @click="refreshByKey(tabMenuTargetKey || route.fullPath)"
       >
@@ -984,7 +943,7 @@ onUnmounted(() => {
 
       <button
         type="button"
-        class="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+        class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent disabled:opacity-50"
         role="menuitem"
         :disabled="openedTabs.length <= 1"
         @click="closeTabByKey(tabMenuTargetKey)"
@@ -995,7 +954,7 @@ onUnmounted(() => {
 
       <button
         type="button"
-        class="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+        class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent disabled:opacity-50"
         role="menuitem"
         :disabled="openedTabs.length <= 1"
         @click="closeOthersByKey(tabMenuTargetKey || route.fullPath)"
@@ -1006,7 +965,7 @@ onUnmounted(() => {
 
       <button
         type="button"
-        class="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+        class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent disabled:opacity-50"
         role="menuitem"
         :disabled="openedTabs.length <= 1"
         @click="closeAllTabs"
@@ -1015,53 +974,54 @@ onUnmounted(() => {
         <span>关闭全部</span>
       </button>
     </div>
-  </transition>
+  </Transition>
 
-  <transition
-    enter-active-class="transition duration-[var(--motion-duration)] ease-[var(--motion-ease)]"
-    leave-active-class="transition duration-[var(--motion-duration-fast)] ease-[var(--motion-ease)]"
+  <!-- 搜索面板 -->
+  <Transition
+    enter-active-class="transition duration-150 ease-out"
+    leave-active-class="transition duration-100 ease-in"
     enter-from-class="opacity-0"
     enter-to-class="opacity-100"
     leave-from-class="opacity-100"
     leave-to-class="opacity-0"
   >
     <div v-show="isSearchOpen" class="fixed inset-0 z-[70]">
-      <div class="absolute inset-0 bg-black/25 backdrop-blur-sm dark:bg-black/60" />
-      <div class="relative mx-auto mt-20 w-full max-w-2xl px-4">
-        <transition
-          enter-active-class="transition duration-[var(--motion-duration-slow)] ease-[var(--motion-ease-spring)]"
-          leave-active-class="transition duration-[var(--motion-duration)] ease-[var(--motion-ease)]"
-          enter-from-class="opacity-0 translate-y-2 scale-[0.98]"
-          enter-to-class="opacity-100 translate-y-0 scale-100"
-          leave-from-class="opacity-100 translate-y-0 scale-100"
-          leave-to-class="opacity-0 translate-y-2 scale-[0.98]"
+      <div class="absolute inset-0 bg-black/50" @click="closeSearchPalette" />
+      <div class="relative mx-auto mt-20 w-full max-w-lg px-4">
+        <Transition
+          enter-active-class="transition duration-150 ease-out"
+          leave-active-class="transition duration-100 ease-in"
+          enter-from-class="opacity-0 scale-95"
+          enter-to-class="opacity-100 scale-100"
+          leave-from-class="opacity-100 scale-100"
+          leave-to-class="opacity-0 scale-95"
         >
           <div
             v-show="isSearchOpen"
             ref="searchPanelRef"
-            class="origin-top overflow-hidden rounded-xl bg-popover/75 shadow-xl ring-1 ring-foreground/5 backdrop-blur-xl backdrop-saturate-150 will-change-transform supports-[backdrop-filter]:bg-popover/65"
+            class="overflow-hidden rounded-lg border bg-popover shadow-lg"
             role="dialog"
             aria-label="Search"
           >
-            <div class="p-2">
+            <div class="border-b p-3">
               <div class="relative">
                 <AppIcon
                   icon="radix-icons:magnifying-glass"
-                  class="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                  class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                 />
                 <Input
                   v-model="searchQuery"
-                  placeholder="搜索页面菜单，快速导航"
-                  class="h-11 rounded-xl border-input/40 bg-background/50 pr-4 pl-11 shadow-none"
+                  placeholder="搜索页面..."
+                  class="pl-10"
                   @keydown="onSearchKeyDown"
                 />
               </div>
             </div>
 
-            <div class="max-h-[28rem] overflow-auto p-2 pt-0">
+            <div class="max-h-80 overflow-auto p-2">
               <div
                 v-if="filteredSearchItems.length === 0"
-                class="px-3 py-8 text-center text-[13px] text-muted-foreground"
+                class="px-3 py-6 text-center text-sm text-muted-foreground"
               >
                 无匹配结果
               </div>
@@ -1070,28 +1030,24 @@ onUnmounted(() => {
                 v-for="item in filteredSearchItems"
                 :key="item.key"
                 type="button"
-                class="group flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left transition-[background,box-shadow,transform] hover:-translate-y-px hover:bg-accent hover:shadow-sm"
+                class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
                 @click="navigateToSearchItem(item)"
               >
                 <AppIcon
                   :icon="
                     item.externalLink ? 'radix-icons:external-link' : 'radix-icons:arrow-right'
                   "
-                  class="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground"
+                  class="h-4 w-4 text-muted-foreground"
                 />
                 <div class="min-w-0 flex-1">
-                  <div class="truncate text-[13px] font-medium text-foreground">
-                    {{ item.title }}
-                  </div>
-                  <div class="truncate text-[11px] text-muted-foreground">
-                    {{ item.breadcrumb }}
-                  </div>
+                  <div class="truncate font-medium">{{ item.title }}</div>
+                  <div class="truncate text-xs text-muted-foreground">{{ item.breadcrumb }}</div>
                 </div>
               </button>
             </div>
           </div>
-        </transition>
+        </Transition>
       </div>
     </div>
-  </transition>
+  </Transition>
 </template>

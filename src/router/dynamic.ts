@@ -45,6 +45,16 @@ function normalizePathSegment(path: string) {
   return trimmed.replace(/^\/+/, "").replace(/\/+$/, "")
 }
 
+function normalizeAbsolutePath(path: string) {
+  const trimmed = path.trim()
+  if (!trimmed) return "/"
+
+  const ensured = trimmed.startsWith("/") ? trimmed : `/${trimmed}`
+  const collapsed = ensured.replaceAll(/\/{2,}/g, "/")
+  if (collapsed !== "/" && collapsed.endsWith("/")) return collapsed.replace(/\/+$/, "")
+  return collapsed
+}
+
 function joinFullPath(parentFullPath: string, segment: string) {
   const parent = parentFullPath.trim().replace(/\/+$/, "")
   const seg = segment.trim().replace(/^\/+/, "")
@@ -140,8 +150,10 @@ function toRouteRecord(
   usedNames: Set<string>,
   index: number,
 ): RouteRecordRaw {
-  const segment = normalizePathSegment(item.path)
-  const fullPath = joinFullPath(parentFullPath, segment)
+  const rawPath = item.path.trim()
+  const isAbsolutePath = rawPath.startsWith("/")
+  const segment = isAbsolutePath ? normalizeAbsolutePath(rawPath) : normalizePathSegment(rawPath)
+  const fullPath = isAbsolutePath ? segment : joinFullPath(parentFullPath, segment)
 
   const title = item.meta?.title ?? item.name ?? item.path
   const nameBase = item.name?.trim()
@@ -159,7 +171,7 @@ function toRouteRecord(
 
   return {
     name,
-    path: segment || (index === 0 && parentFullPath === "" ? "" : segment),
+    path: isAbsolutePath ? fullPath : segment,
     redirect: item.redirect,
     component,
     meta: {

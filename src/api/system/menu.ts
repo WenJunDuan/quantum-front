@@ -5,6 +5,7 @@
 
 import { z } from "zod"
 
+import { RouterVOSchema, type RouterVO } from "@/schemas/auth"
 import {
   MenuVOSchema,
   TreeSelectVOSchema,
@@ -15,6 +16,11 @@ import {
   type TreeSelectVO,
 } from "@/schemas/system/menu"
 import request from "@/utils/request"
+
+export async function getUserRouters(): Promise<RouterVO[]> {
+  const data = await request.get<unknown>("/system/menu/getRouters")
+  return z.array(RouterVOSchema).parse(data)
+}
 
 export async function listMenuTree(query: MenuQuery = {}): Promise<MenuVO[]> {
   const data = await request.get<unknown>("/system/menu/list", { params: query })

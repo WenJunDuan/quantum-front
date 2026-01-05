@@ -107,11 +107,11 @@ function badgeClass(status: ActivityRow["status"]) {
       </div>
 
       <div class="flex items-center gap-2">
-        <Button type="button" variant="outline" class="h-11">
+        <Button type="button" variant="outline">
           <AppIcon icon="radix-icons:download" class="h-4 w-4" />
           导出
         </Button>
-        <Button type="button" class="h-11">
+        <Button type="button">
           <AppIcon icon="radix-icons:plus" class="h-4 w-4" />
           新建
         </Button>

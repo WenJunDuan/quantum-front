@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #system-menu | Time: 2026-01-02T00:00:00+08:00
-// Principle: Keep API wrappers small and type-safe.
-// Taste: Validate responses with zod before reaching components.
-
 import { z } from "zod"
 
 import { RouterVOSchema, type RouterVO } from "@/schemas/auth"

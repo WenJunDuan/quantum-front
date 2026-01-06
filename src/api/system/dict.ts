@@ -1,27 +1,22 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #system-dict-api | Time: 2026-01-04T00:00:00+08:00
-// Principle: Keep API wrappers small and type-safe.
-// Taste: Parse with zod before reaching components.
-
 import { z } from "zod"
 
 import {
   DictDataCreateRequestSchema,
-  DictDataVOSchema,
   DictDataUpdateRequestSchema,
+  DictDataVOSchema,
   DictTypeCreateRequestSchema,
   DictTypeUpdateRequestSchema,
+  DictTypeVOSchema,
   PageResultDictTypeVOSchema,
   type DictDataCreateRequest,
   type DictDataQuery,
-  type DictDataVO,
   type DictDataUpdateRequest,
+  type DictDataVO,
   type DictTypeCreateRequest,
   type DictTypeQuery,
   type DictTypeUpdateRequest,
-  type PageResultDictTypeVO,
   type DictTypeVO,
-  DictTypeVOSchema,
+  type PageResultDictTypeVO,
 } from "@/schemas/system/dict"
 import request from "@/utils/request"
 

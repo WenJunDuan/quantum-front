@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #system-menu | Time: 2026-01-02T00:00:00+08:00
-// Principle: Components don't fetch; hooks do.
-// Taste: Small query/mutation wrappers with stable keys.
-
 import type { MenuCreateRequest, MenuQuery, MenuUpdateRequest } from "@/schemas/system/menu"
 import type { Ref } from "vue"
 

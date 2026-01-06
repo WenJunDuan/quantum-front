@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #layout-tabs | Time: 2025-12-29T00:00:00+08:00
-// Principle: Navigation state is data; UI renders from store.
-// Taste: Keep tabs minimal, predictable, and route-driven.
-
 import type { RouteLocationNormalizedLoaded } from "vue-router"
 
 import { defineStore } from "pinia"

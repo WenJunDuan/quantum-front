@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #rbac | Time: 2025-12-27T00:00:00+08:00
-// Principle: Button-level auth should be declarative.
-// Taste: Hide unauthorized elements via v-permission / v-role.
-
 import type { App, ObjectDirective } from "vue"
 
 import { useUserStore } from "@/stores/user"

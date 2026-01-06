@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #fix-auth-hook | Time: 2025-12-27T00:00:00+08:00
-// Principle: Keep domain access patterns consistent.
-// Taste: A tiny composable that forwards to the store—no extra magic.
-
 import { storeToRefs } from "pinia"
 
 import { useUserStore } from "@/stores/user"

@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #api-contract | Time: 2025-12-26T00:00:00+08:00
-// Principle: Error context should be centralized.
-// Taste: Keep only the last fatal error for error pages.
-
 import { defineStore } from "pinia"
 import { ref } from "vue"
 

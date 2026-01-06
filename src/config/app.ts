@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #restore | Time: 2025-12-24T10:01:59+08:00
-// Principle: Configuration belongs in data, not code.
-// Taste: One tiny typed module for all runtime config.
-
 function readBooleanEnv(value: unknown, fallback: boolean): boolean {
   if (typeof value !== "string") return fallback
 

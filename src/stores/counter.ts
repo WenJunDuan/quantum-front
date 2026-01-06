@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #restore | Time: 2025-12-24T10:01:59+08:00
-// Principle: Stores model data, not UI.
-// Taste: Keep state minimal and mutation explicit.
-
 import { defineStore } from "pinia"
 import { ref } from "vue"
 

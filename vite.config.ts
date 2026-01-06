@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #restore | Time: 2025-12-24T10:01:59+08:00
-// Principle: Don't break userspace; restore behavior via config, not hacks.
-// Taste: Keep build/dev knobs explicit and predictable.
-
 import tailwindcss from "@tailwindcss/vite"
 import vue from "@vitejs/plugin-vue"
 import { fileURLToPath, URL } from "node:url"

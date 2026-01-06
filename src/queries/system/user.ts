@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #system-user-api | Time: 2026-01-04T00:00:00+08:00
-// Principle: Components don't fetch; hooks do.
-// Taste: Stable query keys + small wrappers.
-
 import type { UserCreateRequest, UserQuery, UserUpdateRequest } from "@/schemas/system/user"
 import type { Ref } from "vue"
 

@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #api-contract | Time: 2025-12-26T00:00:00+08:00
-// Principle: Shared contracts belong in types, not ad-hoc shapes.
-// Taste: Keep API types minimal and backend-aligned.
-
 export interface Result<T = unknown> {
   code: number
   message: string

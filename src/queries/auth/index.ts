@@ -1,9 +1,3 @@
-// {{RIPER-10 Action}}
-// src/queries/auth/index.ts
-// Role: LD | Task_ID: #dx-vue-query | Time: 2025-12-28T00:00:00+08:00
-// Principle: Components don't fetch; hooks do.
-// Taste: Query/mutation wrappers that centralize cache + side effects.
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query"
 
 import { createCaptcha, getUserInfo, login, type LoginPayload } from "@/api/auth"

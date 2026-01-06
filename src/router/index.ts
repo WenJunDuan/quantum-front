@@ -1,11 +1,6 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #fix-router | Time: 2025-12-27T00:00:00+08:00
-// Principle: Routes are part of the public API surface.
-// Taste: Keep routing small, lazy-loaded, and predictable.
-
 import NProgress from "nprogress"
-import { createRouter, createWebHistory } from "vue-router"
 import "nprogress/nprogress.css"
+import { createRouter, createWebHistory } from "vue-router"
 import { toast } from "vue-sonner"
 
 import { getUserInfo } from "@/api/auth"

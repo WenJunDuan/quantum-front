@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #api-contract | Time: 2025-12-26T00:00:00+08:00
-// Principle: Codes are part of the public API surface.
-// Taste: Mirror backend naming and values; keep fallbacks deterministic.
-
 export const ResultCode = {
   SUCCESS: 200,
 

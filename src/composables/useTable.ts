@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #dx-table | Time: 2025-12-28T00:00:00+08:00
-// Principle: Table state should survive refresh (URL is the source of truth).
-// Taste: Small URL↔state sync helper; reset page on filter changes.
-
 import { reactive, watch } from "vue"
 import { useRoute, useRouter, type LocationQueryRaw } from "vue-router"
 

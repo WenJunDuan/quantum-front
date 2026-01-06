@@ -1,9 +1,3 @@
-<!-- {{RIPER-10 Action}}
-Role: LD | Task_ID: #app-pagination | Time: 2026-01-04T00:00:00+08:00
-Principle: Keep pagination UX consistent across pages.
-Taste: Minimal shadcn-like controls; pageSize is explicit.
--->
-
 <script setup lang="ts">
 import { computed } from "vue"
 

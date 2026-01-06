@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #fix-dynamic | Time: 2025-12-27T00:00:00+08:00
-// Principle: Router records are data; backend drives visibility.
-// Taste: Build route records from RouterVO with safe fallbacks.
-
 import type { RouterVO } from "@/schemas/auth"
 import type { RouteRecordName, RouteRecordRaw, Router } from "vue-router"
 

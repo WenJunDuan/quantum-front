@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #dx-dicts | Time: 2025-12-28T00:00:00+08:00
-// Principle: No magic numbers in views; centralize value→UI mapping.
-// Taste: Typed dict builder with duplicate protection.
-
 export type DictValue = string | number
 
 export type DictItem<V extends DictValue = DictValue> = Readonly<{

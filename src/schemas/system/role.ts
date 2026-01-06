@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #system-role-api | Time: 2026-01-04T00:00:00+08:00
-// Principle: Validate backend contracts at runtime.
-// Taste: Minimal schemas that match the API doc and tolerate extras.
-
 import { z } from "zod"
 
 export const RoleQuerySchema = z

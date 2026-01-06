@@ -1,9 +1,5 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #restore | Time: 2025-12-24T10:01:59+08:00
-// Principle: Make tooling boring and deterministic.
-// Taste: Use `typescript-eslint` single package; keep config minimal and working.
-
 import js from "@eslint/js"
+import configPrettier from "eslint-config-prettier"
 import perfectionist from "eslint-plugin-perfectionist"
 import unicorn from "eslint-plugin-unicorn"
 import unusedImports from "eslint-plugin-unused-imports"
@@ -11,7 +7,6 @@ import vue from "eslint-plugin-vue"
 import globals from "globals"
 import tseslint from "typescript-eslint"
 import vueParser from "vue-eslint-parser"
-import configPrettier from "eslint-config-prettier"
 
 export default tseslint.config(
   {

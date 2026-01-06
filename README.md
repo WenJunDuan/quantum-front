@@ -1,9 +1,3 @@
-<!-- {{RIPER-10 Action}}
-Role: DW | Task_ID: #restore | Time: 2025-12-24T10:01:59+08:00
-Principle: Single Source of Truth (SSoT).
-Taste: Document only what developers will actually touch.
--->
-
 # Quantum Front
 
 ## Quickstart

@@ -1,8 +1,3 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #system-menu | Time: 2026-01-02T00:00:00+08:00
-// Principle: Backend contracts must be validated at runtime.
-// Taste: Minimal schemas that match OpenAPI and tolerate extras.
-
 import { z } from "zod"
 
 export const MenuQuerySchema = z

@@ -9,6 +9,7 @@ import type { MenuVO } from "@/schemas/system/menu"
 import type { RoleQuery, RoleUpdateRequest, RoleVO } from "@/schemas/system/role"
 
 import { computed, reactive, ref, watch } from "vue"
+import { toast } from "vue-sonner"
 
 import AppIcon from "@/components/app-icon"
 import { Button } from "@/components/ui/button"
@@ -17,7 +18,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { useMenuTreeQuery } from "@/queries/system/menu"
 import { useRoleMenuIdsQuery, useRolePageQuery, useUpdateRoleMutation } from "@/queries/system/role"
-import { useNotifyStore } from "@/stores/notify"
 import { formatDateTime } from "@/utils/date"
 
 function isKeyLike(value: string) {
@@ -25,7 +25,6 @@ function isKeyLike(value: string) {
 }
 
 const roleKeyword = ref("")
-const notify = useNotifyStore()
 
 const roleQuery = computed<RoleQuery>(() => {
   const keyword = roleKeyword.value.trim()
@@ -221,14 +220,14 @@ async function saveMenuPermissions() {
   const role = selectedRole.value
   const roleId = role?.id
   if (typeof roleId !== "number" || roleId <= 0) {
-    notify.error("请先选择角色")
+    toast.error("请先选择角色")
     return
   }
 
   const roleName = role.roleName?.trim()
   const roleKey = role.roleKey?.trim()
   if (!roleName || !roleKey) {
-    notify.error("角色信息不完整，无法保存权限")
+    toast.error("角色信息不完整，无法保存权限")
     return
   }
 
@@ -245,10 +244,10 @@ async function saveMenuPermissions() {
 
   try {
     await updateRoleMutation.mutateAsync(payload)
-    notify.success("权限已保存")
+    toast.success("权限已保存")
   } catch (error) {
     console.error("[SystemRole] Failed to save role menus:", error)
-    notify.error("保存失败，请稍后重试")
+    toast.error("保存失败，请稍后重试")
   }
 }
 

@@ -6,8 +6,19 @@ Taste: Two-panel layout with a simple tree and a clear form.
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue"
+import { toast } from "vue-sonner"
 
 import AppIcon from "@/components/app-icon"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -27,7 +38,6 @@ import {
   type MenuUpdateRequest,
   type MenuVO,
 } from "@/schemas/system/menu"
-import { useNotifyStore } from "@/stores/notify"
 
 type PageMode = "create" | "edit"
 
@@ -53,8 +63,6 @@ interface MenuTreeRow {
   hasChildren: boolean
   isExpanded: boolean
 }
-
-const notify = useNotifyStore()
 
 const treeQuery = useMenuTreeQuery()
 const treeNodes = computed(() => treeQuery.data.value ?? [])
@@ -415,7 +423,7 @@ function startCreateRoot() {
 
 function startCreateChild() {
   if (!selectedMenuId.value) {
-    notify.info("请先在左侧选择一个父菜单")
+    toast.info("请先在左侧选择一个父菜单")
     return
   }
 
@@ -425,7 +433,7 @@ function startCreateChild() {
 
 function startCreateButton() {
   if (!selectedMenuId.value) {
-    notify.info("请先在左侧选择一个菜单")
+    toast.info("请先在左侧选择一个菜单")
     return
   }
 
@@ -477,18 +485,18 @@ async function onSave() {
   if (isSaving.value) return
 
   if (!form.menuName.trim()) {
-    notify.error("菜单名称不能为空")
+    toast.error("菜单名称不能为空")
     return
   }
   if (!form.menuType.trim()) {
-    notify.error("菜单类型不能为空")
+    toast.error("菜单类型不能为空")
     return
   }
 
   try {
     if (mode.value === "create") {
       const id = await createMutation.mutateAsync(buildCreatePayload())
-      notify.success("菜单已创建")
+      toast.success("菜单已创建")
       mode.value = "edit"
       selectedMenuId.value = id
       await treeQuery.refetch()
@@ -496,10 +504,10 @@ async function onSave() {
     }
 
     await updateMutation.mutateAsync(buildUpdatePayload())
-    notify.success("菜单已保存")
+    toast.success("菜单已保存")
   } catch (error) {
     if (error instanceof Error && error.message.includes("[SystemMenu]")) {
-      notify.error(error.message.replace("[SystemMenu] ", ""))
+      toast.error(error.message.replace("[SystemMenu] ", ""))
       return
     }
     // others are handled globally by request/notify
@@ -520,17 +528,30 @@ async function onDelete() {
   const menuId = toOptionalInt(form.id)
   if (!menuId) return
 
-  await deleteMenuNode(menuId)
+  deleteMenuNode(menuId)
 }
 
-async function deleteMenuNode(menuId: number) {
+const isDeleteConfirmOpen = ref(false)
+const deleteTargetMenuId = ref<number | null>(null)
+
+function deleteMenuNode(menuId: number) {
+  if (deleteMutation.isPending.value) return
+  deleteTargetMenuId.value = menuId
+  isDeleteConfirmOpen.value = true
+}
+
+async function confirmDeleteMenuNode() {
   if (deleteMutation.isPending.value) return
 
-  if (!globalThis.confirm("确认删除该菜单？（如存在子菜单，请先处理）")) return
+  const menuId = deleteTargetMenuId.value
+  if (typeof menuId !== "number" || !Number.isInteger(menuId) || menuId <= 0) return
+
+  isDeleteConfirmOpen.value = false
+  deleteTargetMenuId.value = null
 
   try {
     await deleteMutation.mutateAsync(menuId)
-    notify.success("菜单已删除")
+    toast.success("菜单已删除")
 
     if (selectedMenuId.value === menuId) {
       selectedMenuId.value = null
@@ -756,7 +777,7 @@ async function deleteMenuNode(menuId: number) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    @click="notify.info('暂未实现图标选择器')"
+                    @click="toast.info('暂未实现图标选择器')"
                   >
                     选择
                   </Button>
@@ -1007,5 +1028,24 @@ async function deleteMenuNode(menuId: number) {
         </form>
       </Card>
     </div>
+
+    <AlertDialog v-model:open="isDeleteConfirmOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>确认删除该菜单？</AlertDialogTitle>
+          <AlertDialogDescription>如存在子菜单，请先处理后再删除。</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel :disabled="deleteMutation.isPending.value">取消</AlertDialogCancel>
+          <AlertDialogAction
+            :disabled="deleteMutation.isPending.value"
+            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            @click="confirmDeleteMenuNode"
+          >
+            删除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>

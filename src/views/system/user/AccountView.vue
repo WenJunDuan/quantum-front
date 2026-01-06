@@ -6,13 +6,12 @@ Taste: Calm placeholder until backend is ready.
 -->
 
 <script setup lang="ts">
-import { Button } from "@/components/ui/button"
-import { useNotifyStore } from "@/stores/notify"
+import { toast } from "vue-sonner"
 
-const notify = useNotifyStore()
+import { Button } from "@/components/ui/button"
 
 function onResetPassword() {
-  notify.info("功能待接入：重置密码")
+  toast.info("功能待接入：重置密码")
 }
 </script>
 

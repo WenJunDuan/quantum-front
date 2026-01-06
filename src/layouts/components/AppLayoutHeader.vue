@@ -18,13 +18,13 @@ import type { RouteLocationMatched } from "vue-router"
 import { storeToRefs } from "pinia"
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue"
 import { RouterLink, useRoute, useRouter } from "vue-router"
+import { toast } from "vue-sonner"
 
 import AppIcon from "@/components/app-icon"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { appConfig } from "@/config/app"
-import { useNotifyStore } from "@/stores/notify"
 import { useTabsStore } from "@/stores/tabs"
 import { useUserStore } from "@/stores/user"
 
@@ -39,7 +39,6 @@ const emit = defineEmits<{
 
 const route = useRoute()
 const router = useRouter()
-const notify = useNotifyStore()
 const userStore = useUserStore()
 const tabsStore = useTabsStore()
 
@@ -249,7 +248,7 @@ function syncFullscreenState() {
 
 async function toggleFullscreen() {
   if (!document.fullscreenEnabled) {
-    notify.info("当前浏览器不支持全屏")
+    toast.info("当前浏览器不支持全屏")
     return
   }
 

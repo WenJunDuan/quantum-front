@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type AxiosRequestConfig } from "axios"
 import queryString from "query-string"
+import { toast } from "vue-sonner"
 
 import { appConfig } from "@/config/app"
 import { ResultCode, getDefaultResultMessage } from "@/constants/result-code"
@@ -67,10 +68,7 @@ function unwrapEnvelopeData(envelope: BackendEnvelope): unknown {
 }
 
 function showError(message: string) {
-  // 动态导入避免循环依赖
-  import("@/stores/notify")
-    .then(({ useNotifyStore }) => useNotifyStore().error(message))
-    .catch(() => console.error("[Request]", message))
+  toast.error(message)
 }
 
 function redirectToLogin() {
@@ -373,7 +371,7 @@ const instance = axios.create({
 })
 
 // 请求拦截：添加 Token
-instance.interceptors.request.use((config) => {
+instance.interceptors.request.use(async (config) => {
   const meta = (config as RequestConfig).meta
   if (meta?.skipAuth) {
     const headers = config.headers as unknown as {
@@ -396,6 +394,7 @@ instance.interceptors.request.use((config) => {
   }
 
   const userStore = useUserStore()
+  await userStore.hydrateTokens()
   const accessToken = userStore.accessToken
   const refreshToken = userStore.refreshToken
 

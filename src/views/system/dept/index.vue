@@ -6,8 +6,19 @@ Taste: One card, clear toolbar, readable rows.
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue"
+import { toast } from "vue-sonner"
 
 import AppIcon from "@/components/app-icon"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -27,7 +38,6 @@ import {
   type DeptUpdateRequest,
   type DeptVO,
 } from "@/schemas/system/dept"
-import { useNotifyStore } from "@/stores/notify"
 
 interface DeptRow {
   id: number
@@ -163,7 +173,6 @@ const deptStats = computed(() => {
   return { topLevel, children: Math.max(0, total - topLevel) }
 })
 
-const notify = useNotifyStore()
 const createDeptMutation = useCreateDeptMutation()
 const updateDeptMutation = useUpdateDeptMutation()
 const deleteDeptMutation = useDeleteDeptMutation()
@@ -210,7 +219,7 @@ function openCreateDept(parent?: DeptVO) {
 function openEditDept(node: DeptVO) {
   const id = node.id
   if (typeof id !== "number" || !Number.isInteger(id) || id <= 0) {
-    notify.error("部门ID无效，无法编辑")
+    toast.error("部门ID无效，无法编辑")
     return
   }
 
@@ -267,26 +276,39 @@ async function submitDeptForm() {
   try {
     if (deptFormMode.value === "create") {
       await createDeptMutation.mutateAsync(buildCreatePayload())
-      notify.success("部门已创建")
+      toast.success("部门已创建")
     } else {
       await updateDeptMutation.mutateAsync(buildUpdatePayload())
-      notify.success("部门已更新")
+      toast.success("部门已更新")
     }
     closeDeptForm()
   } catch (error) {
     console.error("[SystemDept] Failed to submit dept form:", error)
-    notify.error("提交失败，请检查输入或稍后重试")
+    toast.error("提交失败，请检查输入或稍后重试")
   }
 }
 
-async function deleteDeptNode(deptId: number) {
-  if (!globalThis.confirm("确认删除该部门？")) return
+const isDeleteConfirmOpen = ref(false)
+const deleteTargetDeptId = ref<number | null>(null)
+
+function requestDeleteDept(deptId: number) {
+  deleteTargetDeptId.value = deptId
+  isDeleteConfirmOpen.value = true
+}
+
+async function confirmDeleteDept() {
+  const deptId = deleteTargetDeptId.value
+  if (typeof deptId !== "number" || !Number.isInteger(deptId) || deptId <= 0) return
+
+  isDeleteConfirmOpen.value = false
+  deleteTargetDeptId.value = null
+
   try {
     await deleteDeptMutation.mutateAsync(deptId)
-    notify.success("删除成功")
+    toast.success("删除成功")
   } catch (error) {
     console.error("[SystemDept] Failed to delete dept:", error)
-    notify.error("删除失败，请稍后重试")
+    toast.error("删除失败，请稍后重试")
   }
 }
 </script>
@@ -417,7 +439,7 @@ async function deleteDeptNode(deptId: number) {
                     @click="
                       typeof row.node.id === 'number' &&
                       row.node.id > 0 &&
-                      deleteDeptNode(row.node.id)
+                      requestDeleteDept(row.node.id)
                     "
                   >
                     删除
@@ -556,5 +578,24 @@ async function deleteDeptNode(deptId: number) {
         </CardContent>
       </Card>
     </div>
+
+    <AlertDialog v-model:open="isDeleteConfirmOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>确认删除该部门？</AlertDialogTitle>
+          <AlertDialogDescription>删除后不可恢复，请谨慎操作。</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel :disabled="deleteDeptMutation.isPending.value">取消</AlertDialogCancel>
+          <AlertDialogAction
+            :disabled="deleteDeptMutation.isPending.value"
+            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            @click="confirmDeleteDept"
+          >
+            删除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>

@@ -6,130 +6,147 @@ import type { RouterVO, UserInfo } from "@/schemas/auth"
 import { defineStore } from "pinia"
 import { computed, ref } from "vue"
 
-export const useUserStore = defineStore(
-  "user",
-  () => {
-    // ==================== Token ====================
+import { clearTokens, loadTokens, saveTokens } from "@/utils/secure-token-storage"
 
-    const accessToken = ref<string | null>(null)
-    const refreshToken = ref<string | null>(null)
-    const isAuthed = computed(() => Boolean(accessToken.value))
+export const useUserStore = defineStore("user", () => {
+  // ==================== Token ====================
 
-    /**
-     * 设置 Token（登录成功后调用）
-     */
-    function setTokens(tokens: { accessToken: string; refreshToken?: string | null }) {
-      accessToken.value = tokens.accessToken
-      refreshToken.value = tokens.refreshToken ?? null
-    }
+  const accessToken = ref<string | null>(null)
+  const refreshToken = ref<string | null>(null)
+  const isAuthed = computed(() => Boolean(accessToken.value))
 
-    // ==================== 用户信息 ====================
+  const isTokensLoaded = ref(false)
+  let loadTokensPromise: Promise<void> | null = null
 
-    const profile = ref<UserInfo | null>(null)
-    const roles = ref<string[]>([])
-    const permissions = ref<string[]>([])
-    const routers = ref<RouterVO[]>([])
+  async function hydrateTokens() {
+    if (isTokensLoaded.value) return
+    if (loadTokensPromise) return loadTokensPromise
 
-    const isUserInfoLoaded = computed(() => profile.value !== null)
-    const areRoutersLoaded = ref(false)
-    const areDynamicRoutesReady = ref(false)
+    loadTokensPromise = (async () => {
+      const stored = await loadTokens()
+      accessToken.value = stored.accessToken
+      refreshToken.value = stored.refreshToken
+      isTokensLoaded.value = true
+    })().finally(() => {
+      loadTokensPromise = null
+    })
 
-    const roleSet = computed(() => new Set(roles.value))
-    const permissionSet = computed(() => new Set(permissions.value))
+    return loadTokensPromise
+  }
 
-    function setUserInfo(info: UserInfo | null) {
-      profile.value = info
-      roles.value = info?.roles ?? []
-      permissions.value = info?.permissions ?? []
+  /**
+   * 设置 Token（登录成功后调用）
+   */
+  function setTokens(tokens: { accessToken: string; refreshToken?: string | null }) {
+    accessToken.value = tokens.accessToken
+    refreshToken.value = tokens.refreshToken ?? null
+    void saveTokens({ accessToken: accessToken.value, refreshToken: refreshToken.value })
+  }
 
-      const routersFromInfo = info?.routers
-      if (Array.isArray(routersFromInfo) && routersFromInfo.length > 0) {
-        routers.value = routersFromInfo
-        areRoutersLoaded.value = true
-      }
-    }
+  // ==================== 用户信息 ====================
 
-    function clearUserInfo() {
-      profile.value = null
-      roles.value = []
-      permissions.value = []
-      routers.value = []
-      areRoutersLoaded.value = false
-      areDynamicRoutesReady.value = false
-    }
+  const profile = ref<UserInfo | null>(null)
+  const roles = ref<string[]>([])
+  const permissions = ref<string[]>([])
+  const routers = ref<RouterVO[]>([])
 
-    function markDynamicRoutesReady() {
-      areDynamicRoutesReady.value = true
-    }
+  const isUserInfoLoaded = computed(() => profile.value !== null)
+  const areRoutersLoaded = ref(false)
+  const areDynamicRoutesReady = ref(false)
 
-    function setRouters(next: RouterVO[]) {
-      routers.value = Array.isArray(next) ? next : []
+  const roleSet = computed(() => new Set(roles.value))
+  const permissionSet = computed(() => new Set(permissions.value))
+
+  function setUserInfo(info: UserInfo | null) {
+    profile.value = info
+    roles.value = info?.roles ?? []
+    permissions.value = info?.permissions ?? []
+
+    const routersFromInfo = info?.routers
+    if (Array.isArray(routersFromInfo) && routersFromInfo.length > 0) {
+      routers.value = routersFromInfo
       areRoutersLoaded.value = true
     }
+  }
 
-    // ==================== 权限判断 ====================
+  function clearUserInfo() {
+    profile.value = null
+    roles.value = []
+    permissions.value = []
+    routers.value = []
+    areRoutersLoaded.value = false
+    areDynamicRoutesReady.value = false
+  }
 
-    function hasAnyRole(required: string[]) {
-      if (required.length === 0) return true
-      return required.some((role) => roleSet.value.has(role))
-    }
+  function markDynamicRoutesReady() {
+    areDynamicRoutesReady.value = true
+  }
 
-    function hasRole(role: string) {
-      return !role || roleSet.value.has(role)
-    }
+  function setRouters(next: RouterVO[]) {
+    routers.value = Array.isArray(next) ? next : []
+    areRoutersLoaded.value = true
+  }
 
-    function hasAnyPermission(required: string[]) {
-      if (required.length === 0) return true
-      if (permissionSet.value.has("*") || permissionSet.value.has("*:*:*")) return true
-      return required.some((p) => permissionSet.value.has(p))
-    }
+  // ==================== 权限判断 ====================
 
-    function hasPermission(permission: string) {
-      return !permission || hasAnyPermission([permission])
-    }
+  function hasAnyRole(required: string[]) {
+    if (required.length === 0) return true
+    return required.some((role) => roleSet.value.has(role))
+  }
 
-    // ==================== 登出 ====================
+  function hasRole(role: string) {
+    return !role || roleSet.value.has(role)
+  }
 
-    function logout() {
-      accessToken.value = null
-      refreshToken.value = null
-      clearUserInfo()
-    }
+  function hasAnyPermission(required: string[]) {
+    if (required.length === 0) return true
+    if (permissionSet.value.has("*") || permissionSet.value.has("*:*:*")) return true
+    return required.some((p) => permissionSet.value.has(p))
+  }
 
-    return {
-      // Token
-      accessToken,
-      refreshToken,
-      isAuthed,
-      setTokens,
+  function hasPermission(permission: string) {
+    return !permission || hasAnyPermission([permission])
+  }
 
-      // User Info
-      profile,
-      roles,
-      permissions,
-      routers,
-      isUserInfoLoaded,
-      areRoutersLoaded,
-      areDynamicRoutesReady,
-      setUserInfo,
-      setRouters,
-      clearUserInfo,
-      markDynamicRoutesReady,
+  // ==================== 登出 ====================
 
-      // Permission
-      hasAnyRole,
-      hasRole,
-      hasAnyPermission,
-      hasPermission,
+  function logout() {
+    accessToken.value = null
+    refreshToken.value = null
+    clearUserInfo()
+    isTokensLoaded.value = true
+    void clearTokens()
+  }
 
-      // Logout
-      logout,
-    }
-  },
-  {
-    persist: {
-      key: "quantum:user",
-      paths: ["accessToken", "refreshToken"],
-    },
-  },
-)
+  return {
+    // Token
+    accessToken,
+    refreshToken,
+    isAuthed,
+    setTokens,
+    hydrateTokens,
+    isTokensLoaded,
+
+    // User Info
+    profile,
+    roles,
+    permissions,
+    routers,
+    isUserInfoLoaded,
+    areRoutersLoaded,
+    areDynamicRoutesReady,
+    setUserInfo,
+    setRouters,
+    clearUserInfo,
+    markDynamicRoutesReady,
+
+    // Permission
+    hasAnyRole,
+    hasRole,
+    hasAnyPermission,
+    hasPermission,
+
+    // Logout
+    logout,
+  }
+})

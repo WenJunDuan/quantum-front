@@ -6,13 +6,13 @@
 import NProgress from "nprogress"
 import { createRouter, createWebHistory } from "vue-router"
 import "nprogress/nprogress.css"
+import { toast } from "vue-sonner"
 
 import { getUserInfo } from "@/api/auth"
 import { getUserRouters } from "@/api/system/menu"
 import { appConfig } from "@/config/app"
 import { registerDynamicRoutes, resetDynamicRoutes } from "@/router/dynamic"
 import { setAppRouter } from "@/router/navigation"
-import { useNotifyStore } from "@/stores/notify"
 import { useUserStore } from "@/stores/user"
 
 NProgress.configure({ showSpinner: false })
@@ -99,7 +99,7 @@ setAppRouter(router)
 router.beforeEach(async (to) => {
   NProgress.start()
   const userStore = useUserStore()
-  const notify = useNotifyStore()
+  await userStore.hydrateTokens()
   const isPublicRoute = to.meta.public === true
 
   // ========== 未登录处理 ==========
@@ -140,7 +140,7 @@ router.beforeEach(async (to) => {
       // Token 可能已失效，清理并跳转登录
       console.error("[Router] Failed to get user info:", error)
       userStore.logout()
-      notify.error("获取用户信息失败，请重新登录")
+      toast.error("获取用户信息失败，请重新登录")
       return {
         name: "login",
         query: { redirect: to.fullPath },
@@ -157,7 +157,7 @@ router.beforeEach(async (to) => {
       } catch (error) {
         console.error("[Router] Failed to get routers:", error)
         userStore.logout()
-        notify.error("获取菜单失败，请重新登录")
+        toast.error("获取菜单失败，请重新登录")
         return {
           name: "login",
           query: { redirect: to.fullPath },
@@ -175,14 +175,14 @@ router.beforeEach(async (to) => {
     ? to.meta.roles.filter((value) => typeof value === "string")
     : []
   if (requiredRoles.length > 0 && !userStore.hasAnyRole(requiredRoles)) {
-    notify.error("无权限访问")
+    toast.error("无权限访问")
     return { name: "error-404" }
   }
 
   // ========== 权限标识检查 ==========
   const requiredPermission = typeof to.meta.permission === "string" ? to.meta.permission.trim() : ""
   if (requiredPermission && !userStore.hasPermission(requiredPermission)) {
-    notify.error("无权限访问")
+    toast.error("无权限访问")
     return { name: "error-404" }
   }
 

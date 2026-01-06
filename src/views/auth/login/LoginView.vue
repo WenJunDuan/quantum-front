@@ -9,6 +9,7 @@ Taste: Simple, clean shadcn-vue-style login form.
 import SHA256 from "crypto-js/sha256"
 import { computed, onMounted, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router"
+import { toast } from "vue-sonner"
 
 import backgroundUrl from "@/assets/background.svg?url"
 import { Button } from "@/components/ui/button"
@@ -18,12 +19,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { appConfig } from "@/config/app"
 import { useCaptchaQuery, useLoginMutation } from "@/queries/auth"
-import { useNotifyStore } from "@/stores/notify"
 
 const formRef = ref<HTMLFormElement | null>(null)
 const router = useRouter()
 const route = useRoute()
-const notify = useNotifyStore()
 
 const username = ref("")
 const password = ref("")
@@ -56,7 +55,7 @@ async function fetchCaptcha() {
 
   // 限制重试次数
   if (captchaRetryCount.value >= maxCaptchaRetries) {
-    notify.error("验证码加载失败次数过多，请稍后再试")
+    toast.error("验证码加载失败次数过多，请稍后再试")
     return
   }
 
@@ -85,7 +84,7 @@ async function onSubmit() {
     // 确保有验证码
     if (!captchaKey.value) await fetchCaptcha()
     if (!captchaKey.value) {
-      notify.error("请先获取验证码")
+      toast.error("请先获取验证码")
       return
     }
 
@@ -114,7 +113,7 @@ async function onSubmit() {
 }
 
 function onForgotPassword() {
-  notify.info("请联系管理员重置密码")
+  toast.info("请联系管理员重置密码")
 }
 
 const captchaButtonText = computed(() => {

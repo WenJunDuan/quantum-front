@@ -8,15 +8,14 @@ Taste: Apple-like spacing, subtle separators, and high hit-targets.
 <script setup lang="ts">
 import { storeToRefs } from "pinia"
 import { computed, ref, watch } from "vue"
+import { toast } from "vue-sonner"
 
 import AppIcon from "@/components/app-icon"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { useNotifyStore } from "@/stores/notify"
 import { useUserStore } from "@/stores/user"
 
-const notify = useNotifyStore()
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 
@@ -48,7 +47,7 @@ function removeUrl(index: number) {
 }
 
 function save() {
-  notify.info("保存接口尚未接入（当前为页面演示）")
+  toast.info("保存接口尚未接入（当前为页面演示）")
 }
 </script>
 

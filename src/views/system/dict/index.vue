@@ -6,8 +6,19 @@ Taste: Left type list + right item table + clear empty state.
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue"
+import { toast } from "vue-sonner"
 
 import AppPagination from "@/components/app-pagination"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -37,7 +48,6 @@ import {
   type DictTypeUpdateRequest,
   type DictTypeVO,
 } from "@/schemas/system/dict"
-import { useNotifyStore } from "@/stores/notify"
 
 function isKeyLike(value: string) {
   return /^[a-z0-9:_-]+$/i.test(value)
@@ -47,7 +57,6 @@ const typeKeyword = ref("")
 const selectedTypeId = ref<number | null>(null)
 const itemKeyword = ref("")
 const dataStatusFilter = ref<"" | "1" | "0">("")
-const notify = useNotifyStore()
 
 const statusOptions = [
   { label: "全部状态", value: "" },
@@ -123,6 +132,37 @@ const createDataMutation = useCreateDictDataMutation()
 const updateDataMutation = useUpdateDictDataMutation()
 const deleteDataMutation = useDeleteDictDataMutation()
 
+const isConfirmOpen = ref(false)
+const confirmTitle = ref("请确认")
+const confirmDescription = ref("")
+const confirmActionText = ref("确认")
+let confirmAction: (() => Promise<void>) | null = null
+
+const isConfirmSubmitting = computed(
+  () => deleteTypesMutation.isPending.value || deleteDataMutation.isPending.value,
+)
+
+function openConfirm(options: {
+  title: string
+  description?: string
+  actionText?: string
+  onConfirm: () => Promise<void>
+}) {
+  confirmTitle.value = options.title
+  confirmDescription.value = options.description ?? ""
+  confirmActionText.value = options.actionText ?? "确认"
+  confirmAction = options.onConfirm
+  isConfirmOpen.value = true
+}
+
+async function runConfirmAction() {
+  const action = confirmAction
+  isConfirmOpen.value = false
+  confirmAction = null
+  if (!action) return
+  await action()
+}
+
 type DictTypeFormMode = "create" | "edit"
 const isTypeFormOpen = ref(false)
 const typeFormMode = ref<DictTypeFormMode>("create")
@@ -155,7 +195,7 @@ function openCreateType() {
 function openEditType(row: DictTypeVO) {
   const id = row.id
   if (typeof id !== "number" || !Number.isInteger(id) || id <= 0) {
-    notify.error("字典类型ID无效，无法编辑")
+    toast.error("字典类型ID无效，无法编辑")
     return
   }
   typeFormMode.value = "edit"
@@ -195,30 +235,36 @@ async function submitTypeForm() {
     if (typeFormMode.value === "create") {
       const id = await createTypeMutation.mutateAsync(buildCreateTypePayload())
       selectedTypeId.value = id
-      notify.success("字典类型已创建")
+      toast.success("字典类型已创建")
     } else {
       await updateTypeMutation.mutateAsync(buildUpdateTypePayload())
-      notify.success("字典类型已更新")
+      toast.success("字典类型已更新")
     }
     closeTypeForm()
   } catch (error) {
     console.error("[SystemDict] Failed to submit dict type:", error)
-    notify.error("提交失败，请检查输入或稍后重试")
+    toast.error("提交失败，请检查输入或稍后重试")
   }
 }
 
 async function deleteDictType(row: DictTypeVO) {
   const id = row.id
   if (typeof id !== "number" || !Number.isInteger(id) || id <= 0) return
-  if (!globalThis.confirm("确认删除该字典类型？")) return
-  try {
-    await deleteTypesMutation.mutateAsync([id])
-    if (selectedTypeId.value === id) selectedTypeId.value = null
-    notify.success("删除成功")
-  } catch (error) {
-    console.error("[SystemDict] Failed to delete dict type:", error)
-    notify.error("删除失败，请稍后重试")
-  }
+  openConfirm({
+    title: "确认删除该字典类型？",
+    description: "删除后不可恢复，请谨慎操作。",
+    actionText: "删除",
+    onConfirm: async () => {
+      try {
+        await deleteTypesMutation.mutateAsync([id])
+        if (selectedTypeId.value === id) selectedTypeId.value = null
+        toast.success("删除成功")
+      } catch (error) {
+        console.error("[SystemDict] Failed to delete dict type:", error)
+        toast.error("删除失败，请稍后重试")
+      }
+    },
+  })
 }
 
 type DictDataFormMode = "create" | "edit"
@@ -260,7 +306,7 @@ function openCreateData() {
 function openEditData(row: DictDataVO) {
   const id = row.id
   if (typeof id !== "number" || !Number.isInteger(id) || id <= 0) {
-    notify.error("字典数据ID无效，无法编辑")
+    toast.error("字典数据ID无效，无法编辑")
     return
   }
   dataFormMode.value = "edit"
@@ -316,29 +362,35 @@ async function submitDataForm() {
   try {
     if (dataFormMode.value === "create") {
       await createDataMutation.mutateAsync(buildCreateDataPayload())
-      notify.success("字典数据已创建")
+      toast.success("字典数据已创建")
     } else {
       await updateDataMutation.mutateAsync(buildUpdateDataPayload())
-      notify.success("字典数据已更新")
+      toast.success("字典数据已更新")
     }
     closeDataForm()
   } catch (error) {
     console.error("[SystemDict] Failed to submit dict data:", error)
-    notify.error("提交失败，请检查输入或稍后重试")
+    toast.error("提交失败，请检查输入或稍后重试")
   }
 }
 
 async function deleteDictDataRow(row: DictDataVO) {
   const id = row.id
   if (typeof id !== "number" || !Number.isInteger(id) || id <= 0) return
-  if (!globalThis.confirm("确认删除该字典数据？")) return
-  try {
-    await deleteDataMutation.mutateAsync([id])
-    notify.success("删除成功")
-  } catch (error) {
-    console.error("[SystemDict] Failed to delete dict data:", error)
-    notify.error("删除失败，请稍后重试")
-  }
+  openConfirm({
+    title: "确认删除该字典数据？",
+    description: "删除后不可恢复，请谨慎操作。",
+    actionText: "删除",
+    onConfirm: async () => {
+      try {
+        await deleteDataMutation.mutateAsync([id])
+        toast.success("删除成功")
+      } catch (error) {
+        console.error("[SystemDict] Failed to delete dict data:", error)
+        toast.error("删除失败，请稍后重试")
+      }
+    },
+  })
 }
 
 function tagClassByListClass(value?: string) {
@@ -782,5 +834,24 @@ function statusClass(status?: number) {
         </CardContent>
       </Card>
     </div>
+
+    <AlertDialog v-model:open="isConfirmOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{{ confirmTitle }}</AlertDialogTitle>
+          <AlertDialogDescription>{{ confirmDescription }}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel :disabled="isConfirmSubmitting">取消</AlertDialogCancel>
+          <AlertDialogAction
+            :disabled="isConfirmSubmitting"
+            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            @click="runConfirmAction"
+          >
+            {{ confirmActionText }}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>

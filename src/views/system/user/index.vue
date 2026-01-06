@@ -8,9 +8,20 @@ Taste: Calm shadcn-like layout: tree + table.
 import type { DeptQuery, TreeSelectVO } from "@/schemas/system/dept"
 
 import { computed, reactive, ref, watch } from "vue"
+import { toast } from "vue-sonner"
 
 import AppIcon from "@/components/app-icon"
 import AppPagination from "@/components/app-pagination"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -32,7 +43,6 @@ import {
   type UserUpdateRequest,
   type UserVO,
 } from "@/schemas/system/user"
-import { useNotifyStore } from "@/stores/notify"
 import { formatDateTime } from "@/utils/date"
 
 interface DeptTreeItem {
@@ -162,8 +172,6 @@ const statusOptions = [
   { label: "启用", value: "1" },
   { label: "停用", value: "0" },
 ]
-
-const notify = useNotifyStore()
 
 const normalizedUserQuery = computed<UserQuery>(() => {
   const username = usernameKeyword.value.trim()
@@ -306,7 +314,7 @@ function openCreateUser() {
 function openEditUser(row: UserVO) {
   const id = row.id
   if (typeof id !== "number" || !Number.isInteger(id) || id <= 0) {
-    notify.error("用户ID无效，无法编辑")
+    toast.error("用户ID无效，无法编辑")
     return
   }
 
@@ -354,93 +362,147 @@ async function submitUserForm() {
   try {
     if (userFormMode.value === "create") {
       await createUserMutation.mutateAsync(buildCreatePayload())
-      notify.success("用户已创建")
+      toast.success("用户已创建")
     } else {
       await updateUserMutation.mutateAsync(buildUpdatePayload())
-      notify.success("用户已更新")
+      toast.success("用户已更新")
     }
     closeUserForm()
   } catch (error) {
     console.error("[SystemUser] Failed to submit user form:", error)
-    notify.error("提交失败，请检查输入或稍后重试")
+    toast.error("提交失败，请检查输入或稍后重试")
   }
 }
 
 const isBatchStatusSubmitting = ref(false)
+
+const isConfirmOpen = ref(false)
+const confirmTitle = ref("请确认")
+const confirmDescription = ref("")
+const confirmActionText = ref("确认")
+const confirmTone = ref<"default" | "destructive">("default")
+const isConfirmSubmitting = ref(false)
+let confirmAction: (() => Promise<void>) | null = null
+
+function openConfirm(options: {
+  title: string
+  description?: string
+  actionText?: string
+  tone?: "default" | "destructive"
+  onConfirm: () => Promise<void>
+}) {
+  confirmTitle.value = options.title
+  confirmDescription.value = options.description ?? ""
+  confirmActionText.value = options.actionText ?? "确认"
+  confirmTone.value = options.tone ?? "default"
+  confirmAction = options.onConfirm
+  isConfirmOpen.value = true
+}
+
+async function runConfirmAction() {
+  const action = confirmAction
+  isConfirmOpen.value = false
+  confirmAction = null
+  if (!action) return
+
+  isConfirmSubmitting.value = true
+  try {
+    await action()
+  } finally {
+    isConfirmSubmitting.value = false
+  }
+}
 
 async function updateSelectedUsersStatus(nextStatus: number) {
   const ids = [...selectedUserIds]
   if (ids.length === 0) return
 
   const actionLabel = nextStatus === 1 ? "启用" : "停用"
-  if (!globalThis.confirm(`确认${actionLabel}选中的 ${ids.length} 个用户？`)) return
+  openConfirm({
+    title: `确认${actionLabel}选中的 ${ids.length} 个用户？`,
+    description: "该操作会逐个提交更新，请谨慎操作。",
+    actionText: actionLabel,
+    onConfirm: async () => {
+      const rowById = new Map<number, UserVO>()
+      for (const row of userRows.value) {
+        const id = row.id
+        if (typeof id === "number" && Number.isInteger(id) && id > 0) rowById.set(id, row)
+      }
 
-  const rowById = new Map<number, UserVO>()
-  for (const row of userRows.value) {
-    const id = row.id
-    if (typeof id === "number" && Number.isInteger(id) && id > 0) rowById.set(id, row)
-  }
+      isBatchStatusSubmitting.value = true
+      try {
+        for (const id of ids) {
+          const row = rowById.get(id)
+          if (!row) continue
+          const nickname = row.nickname?.trim() || row.username?.trim() || ""
+          if (!nickname) continue
 
-  isBatchStatusSubmitting.value = true
-  try {
-    for (const id of ids) {
-      const row = rowById.get(id)
-      if (!row) continue
-      const nickname = row.nickname?.trim() || row.username?.trim() || ""
-      if (!nickname) continue
+          await updateUserMutation.mutateAsync(
+            UserUpdateRequestSchema.parse({
+              id,
+              nickname,
+              phone: row.phone?.trim() || undefined,
+              email: row.email?.trim() || undefined,
+              status: nextStatus,
+              remark: row.remark?.trim() || undefined,
+            }),
+          )
+        }
 
-      await updateUserMutation.mutateAsync(
-        UserUpdateRequestSchema.parse({
-          id,
-          nickname,
-          phone: row.phone?.trim() || undefined,
-          email: row.email?.trim() || undefined,
-          status: nextStatus,
-          remark: row.remark?.trim() || undefined,
-        }),
-      )
-    }
-
-    selectedUserIds.clear()
-    notify.success(`${actionLabel}成功`)
-  } catch (error) {
-    console.error("[SystemUser] Failed to update users status:", error)
-    notify.error(`${actionLabel}失败，请稍后重试`)
-  } finally {
-    isBatchStatusSubmitting.value = false
-  }
+        selectedUserIds.clear()
+        toast.success(`${actionLabel}成功`)
+      } catch (error) {
+        console.error("[SystemUser] Failed to update users status:", error)
+        toast.error(`${actionLabel}失败，请稍后重试`)
+      } finally {
+        isBatchStatusSubmitting.value = false
+      }
+    },
+  })
 }
 
 function exportUserList() {
-  notify.info("导出功能待对接接口")
+  toast.info("导出功能待对接接口")
 }
 
 async function deleteSelectedUsers() {
   const ids = [...selectedUserIds]
   if (ids.length === 0) return
-  if (!globalThis.confirm(`确认删除选中的 ${ids.length} 个用户？`)) return
-
-  try {
-    await deleteUsersMutation.mutateAsync(ids)
-    selectedUserIds.clear()
-    notify.success("删除成功")
-  } catch (error) {
-    console.error("[SystemUser] Failed to delete users:", error)
-    notify.error("删除失败，请稍后重试")
-  }
+  openConfirm({
+    title: `确认删除选中的 ${ids.length} 个用户？`,
+    description: "删除后不可恢复，请谨慎操作。",
+    actionText: "删除",
+    tone: "destructive",
+    onConfirm: async () => {
+      try {
+        await deleteUsersMutation.mutateAsync(ids)
+        selectedUserIds.clear()
+        toast.success("删除成功")
+      } catch (error) {
+        console.error("[SystemUser] Failed to delete users:", error)
+        toast.error("删除失败，请稍后重试")
+      }
+    },
+  })
 }
 
 async function deleteUserById(userId: number) {
-  if (!globalThis.confirm("确认删除该用户？")) return
-
-  try {
-    await deleteUsersMutation.mutateAsync([userId])
-    selectedUserIds.delete(userId)
-    notify.success("删除成功")
-  } catch (error) {
-    console.error("[SystemUser] Failed to delete user:", error)
-    notify.error("删除失败，请稍后重试")
-  }
+  openConfirm({
+    title: "确认删除该用户？",
+    description: "删除后不可恢复，请谨慎操作。",
+    actionText: "删除",
+    tone: "destructive",
+    onConfirm: async () => {
+      try {
+        await deleteUsersMutation.mutateAsync([userId])
+        selectedUserIds.delete(userId)
+        toast.success("删除成功")
+      } catch (error) {
+        console.error("[SystemUser] Failed to delete user:", error)
+        toast.error("删除失败，请稍后重试")
+      }
+    },
+  })
 }
 </script>
 
@@ -806,5 +868,28 @@ async function deleteUserById(userId: number) {
         </CardContent>
       </Card>
     </div>
+
+    <AlertDialog v-model:open="isConfirmOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{{ confirmTitle }}</AlertDialogTitle>
+          <AlertDialogDescription>{{ confirmDescription }}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel :disabled="isConfirmSubmitting">取消</AlertDialogCancel>
+          <AlertDialogAction
+            :disabled="isConfirmSubmitting"
+            :class="[
+              confirmTone === 'destructive'
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                : '',
+            ]"
+            @click="runConfirmAction"
+          >
+            {{ confirmActionText }}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>

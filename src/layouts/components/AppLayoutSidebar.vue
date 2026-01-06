@@ -150,7 +150,7 @@ watch(
 
 <template>
   <aside
-    class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r bg-background transition-transform lg:static lg:z-auto lg:translate-x-0"
+    class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r bg-card transition-transform lg:static lg:z-auto lg:translate-x-0"
     :class="[props.isOpen ? 'translate-x-0' : '', props.isCollapsed ? 'lg:w-16' : 'lg:w-64']"
   >
     <!-- Logo 区域 -->
@@ -195,7 +195,7 @@ watch(
         class="h-9 w-full justify-start"
         :class="[
           props.isCollapsed ? 'lg:justify-center lg:px-0' : 'gap-2',
-          isDashboardActive ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground',
+          isDashboardActive ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground',
         ]"
       >
         <RouterLink
@@ -221,7 +221,7 @@ watch(
           <div v-if="group.isGroup">
             <button
               type="button"
-              class="flex h-9 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              class="flex h-9 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               :class="[props.isCollapsed ? 'lg:justify-center lg:px-0' : '']"
               :title="props.isCollapsed ? group.title : undefined"
               :aria-expanded="isDynamicGroupOpen(group.fullPath)"
@@ -270,7 +270,7 @@ watch(
             :class="[
               props.isCollapsed ? 'lg:justify-center lg:px-0' : 'gap-2',
               isActivePath(group.fullPath)
-                ? 'bg-muted font-medium text-foreground'
+                ? 'bg-accent font-medium text-foreground'
                 : 'text-muted-foreground',
             ]"
           >

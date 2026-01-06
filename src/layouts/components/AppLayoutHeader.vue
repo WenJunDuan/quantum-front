@@ -882,16 +882,19 @@ onUnmounted(() => {
             />
             <span class="max-w-[8rem] truncate">{{ tab.title }}</span>
 
-            <button
-              type="button"
-              class="grid h-4 w-4 place-items-center rounded text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted hover:text-foreground"
-              :class="[tab.key === activeTabKey ? 'opacity-100' : '']"
-              aria-label="Close tab"
-              :disabled="openedTabs.length <= 1 || tab.closable !== true"
-              @click.stop="closeTabByKey(tab.key)"
+            <span
+              class="grid h-4 w-4 place-items-center rounded text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent hover:text-foreground"
+              :class="[
+                tab.key === activeTabKey ? 'opacity-100' : '',
+                openedTabs.length <= 1 || tab.closable !== true
+                  ? 'pointer-events-none opacity-0'
+                  : '',
+              ]"
+              title="关闭标签页"
+              @click.stop="openedTabs.length > 1 && tab.closable === true && closeTabByKey(tab.key)"
             >
               <AppIcon icon="radix-icons:cross-1" class="h-3 w-3" />
-            </button>
+            </span>
           </button>
         </div>
 

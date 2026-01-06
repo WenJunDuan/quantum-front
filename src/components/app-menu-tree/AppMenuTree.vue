@@ -135,7 +135,7 @@ function isActive(targetPath: string) {
             paddingClass(level),
             collapsed ? 'justify-center' : 'gap-2',
             isActive(item.fullPath)
-              ? 'bg-muted font-medium text-foreground'
+              ? 'bg-accent font-medium text-foreground'
               : 'text-muted-foreground',
           ]"
         >
@@ -169,7 +169,7 @@ function isActive(targetPath: string) {
             paddingClass(level),
             collapsed ? 'justify-center' : 'gap-2',
             isActive(item.fullPath)
-              ? 'bg-muted font-medium text-foreground'
+              ? 'bg-accent font-medium text-foreground'
               : 'text-muted-foreground',
           ]"
         >

@@ -1,128 +1,69 @@
-// {{RIPER-10 Action}}
-// Role: LD | Task_ID: #restore | Time: 2025-12-24T10:01:59+08:00
-// Principle: User control over irreversible changes.
-// Taste: Time-based default + manual override persisted in localStorage.
+import type { ComputedRef } from "vue"
 
-import { readonly, ref } from "vue"
+import { useColorMode as useVueUseColorMode } from "@vueuse/core"
+import { computed, readonly } from "vue"
 
-type ColorModePreference = "auto" | "light" | "dark"
+export type ColorModePreference = "light" | "dark" | "auto"
 
-const STORAGE_KEY = "quantum:color-mode"
-const DAY_START_MINUTES = 8 * 60
-const NIGHT_START_MINUTES = 17 * 60 + 40
+const STORAGE_KEY = "app:color-mode"
+const LEGACY_STORAGE_KEY = "quantum:color-mode"
 
-const isDark = ref(false)
-const preference = ref<ColorModePreference>("auto")
-
-let timerId: number | null = null
 let inited = false
 
-function minutesOfDay(date: Date) {
-  return date.getHours() * 60 + date.getMinutes()
-}
-
-function shouldUseDarkByTime(date: Date) {
-  const minutes = minutesOfDay(date)
-  return minutes < DAY_START_MINUTES || minutes >= NIGHT_START_MINUTES
-}
-
-function computeDark(date: Date, pref: ColorModePreference) {
-  if (pref === "dark") return true
-  if (pref === "light") return false
-  return shouldUseDarkByTime(date)
-}
-
-function applyColorMode(dark: boolean) {
-  isDark.value = dark
-  document.documentElement.classList.toggle("dark", dark)
-}
-
-function stopSchedule() {
-  if (timerId === null) return
-  globalThis.clearTimeout(timerId)
-  timerId = null
-}
-
-function getNextSwitchTime(now: Date) {
-  const minutes = minutesOfDay(now)
-
-  if (minutes >= DAY_START_MINUTES && minutes < NIGHT_START_MINUTES) {
-    const next = new Date(now)
-    next.setHours(17, 40, 0, 0)
-    return next
-  }
-
-  const next = new Date(now)
-  if (minutes < DAY_START_MINUTES) {
-    next.setHours(8, 0, 0, 0)
-  } else {
-    next.setDate(next.getDate() + 1)
-    next.setHours(8, 0, 0, 0)
-  }
-  return next
-}
-
-function scheduleNext(now: Date) {
-  stopSchedule()
-
-  const next = getNextSwitchTime(now)
-  const delay = next.getTime() - now.getTime()
-
-  timerId = globalThis.setTimeout(
-    () => {
-      if (preference.value !== "auto") return
-
-      const current = new Date()
-      applyColorMode(computeDark(current, preference.value))
-      scheduleNext(current)
-    },
-    Math.max(0, delay) + 250,
-  )
-}
-
-function readPreference(): ColorModePreference {
-  const raw = globalThis.localStorage?.getItem(STORAGE_KEY)
-  if (raw === "light" || raw === "dark" || raw === "auto") return raw
-  return "auto"
-}
-
-function persistPreference(pref: ColorModePreference) {
-  globalThis.localStorage?.setItem(STORAGE_KEY, pref)
-}
-
-function setPreference(next: ColorModePreference) {
-  preference.value = next
-  persistPreference(next)
-
-  const now = new Date()
-  applyColorMode(computeDark(now, next))
-
-  if (next === "auto") scheduleNext(now)
-  else stopSchedule()
-}
-
-function toggleColorMode() {
-  setPreference(isDark.value ? "light" : "dark")
-}
-
-function initAppColorMode() {
+function migrateLegacyPreference() {
   if (inited) return
   inited = true
 
-  const pref = readPreference()
-  preference.value = pref
+  try {
+    if (typeof localStorage === "undefined") return
+    if (localStorage.getItem(STORAGE_KEY)) return
 
-  const now = new Date()
-  applyColorMode(computeDark(now, pref))
-  if (pref === "auto") scheduleNext(now)
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
+    if (legacy === "light" || legacy === "dark" || legacy === "auto") {
+      localStorage.setItem(STORAGE_KEY, legacy)
+    }
+  } catch {
+    // ignore storage failures
+  }
 }
 
+interface UseColorModeReturn {
+  isDark: Readonly<ComputedRef<boolean>>
+  preference: Readonly<ComputedRef<ColorModePreference>>
+  setPreference: (pref: ColorModePreference) => void
+  toggleColorMode: () => void
+}
+
+let cached: UseColorModeReturn | undefined
+
 export function useAppColorMode() {
-  initAppColorMode()
-  return {
+  if (cached) return cached
+
+  migrateLegacyPreference()
+
+  const mode = useVueUseColorMode({
+    attribute: "class",
+    modes: { light: "light", dark: "dark" },
+    storageKey: STORAGE_KEY,
+    initialValue: "auto",
+  })
+
+  const isDark = computed(() => mode.value === "dark")
+  const preference = computed<ColorModePreference>(() => {
+    const stored = mode.store.value
+    return stored === "light" || stored === "dark" ? stored : "auto"
+  })
+
+  cached = {
     isDark: readonly(isDark),
     preference: readonly(preference),
-    setPreference,
-    toggleColorMode,
+    setPreference: (pref: ColorModePreference) => {
+      mode.store.value = pref
+    },
+    toggleColorMode: () => {
+      mode.value = mode.value === "dark" ? "light" : "dark"
+    },
   }
+
+  return cached
 }

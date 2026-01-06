@@ -44,7 +44,6 @@ function isKeyLike(value: string) {
 }
 
 const typeKeyword = ref("")
-const typeStatusFilter = ref<"" | "1" | "0">("")
 const selectedTypeId = ref<number | null>(null)
 const itemKeyword = ref("")
 const dataStatusFilter = ref<"" | "1" | "0">("")
@@ -59,12 +58,10 @@ const statusOptions = [
 const dictTypeQuery = computed<DictTypeQuery>(() => {
   const keyword = typeKeyword.value.trim()
   const keyLike = keyword && isKeyLike(keyword)
-  const status = typeStatusFilter.value === "" ? undefined : Number(typeStatusFilter.value)
 
   return {
     pageNum: 1,
     pageSize: 50,
-    ...(typeof status === "number" ? { status } : {}),
     ...(keyword ? (keyLike ? { dictType: keyword } : { dictName: keyword }) : {}),
   }
 })
@@ -385,7 +382,6 @@ function statusClass(status?: number) {
         >
           <div class="flex items-center gap-2">
             <CardTitle class="text-base">字典类型</CardTitle>
-            <span class="text-[12px] text-muted-foreground">(Key)</span>
           </div>
           <Button type="button" size="sm" @click="openCreateType">+ 新增</Button>
         </CardHeader>
@@ -394,9 +390,6 @@ function statusClass(status?: number) {
           <div class="flex flex-wrap items-center gap-2">
             <div class="min-w-[200px] flex-1">
               <Input v-model="typeKeyword" placeholder="搜索字典名称/编码..." />
-            </div>
-            <div class="w-full sm:w-[160px]">
-              <Select v-model="typeStatusFilter" :options="statusOptions" />
             </div>
           </div>
         </CardContent>
@@ -428,32 +421,31 @@ function statusClass(status?: number) {
                     <div class="mt-1 truncate text-[12px] text-muted-foreground">
                       {{ t.remark ?? "-" }}
                     </div>
-                    <div class="mt-2 flex flex-wrap items-center gap-2">
-                      <span
-                        class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium"
-                        :class="statusClass(t.status)"
-                      >
-                        {{ statusText(t.status) }}
-                      </span>
-                      <span class="text-[11px] text-muted-foreground">— 项</span>
-                    </div>
                   </div>
 
-                  <div class="flex items-center gap-3 text-[12px]">
-                    <button
-                      type="button"
-                      class="text-primary hover:underline"
-                      @click.stop="openEditType(t)"
+                  <div class="flex flex-col items-center gap-2 text-[12px]">
+                    <span
+                      class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium"
+                      :class="statusClass(t.status)"
                     >
-                      编辑
-                    </button>
-                    <button
-                      type="button"
-                      class="text-destructive hover:underline"
-                      @click.stop="deleteDictType(t)"
-                    >
-                      删除
-                    </button>
+                      {{ statusText(t.status) }}
+                    </span>
+                    <div class="flex items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        class="text-primary hover:underline"
+                        @click.stop="openEditType(t)"
+                      >
+                        编辑
+                      </button>
+                      <button
+                        type="button"
+                        class="text-destructive hover:underline"
+                        @click.stop="deleteDictType(t)"
+                      >
+                        删除
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -570,36 +562,6 @@ function statusClass(status?: number) {
           <div class="text-5xl opacity-40">📋</div>
           <div class="mt-3 text-[13px] text-muted-foreground">请从左侧选择字典类型</div>
           <div class="mt-1 text-[12px] text-muted-foreground">选择后将显示对应的字典数据</div>
-        </div>
-
-        <div class="rounded-lg bg-muted/20 p-4 text-[12px] text-muted-foreground">
-          <div class="font-medium text-foreground/80">样式配置说明：</div>
-          <div class="mt-2 flex flex-wrap items-center gap-2">
-            <span
-              class="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700"
-              >蓝色</span
-            >
-            <span
-              class="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700"
-              >绿色</span
-            >
-            <span
-              class="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-medium text-orange-700"
-              >橙色</span
-            >
-            <span
-              class="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700"
-              >红色</span
-            >
-            <span
-              class="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-medium text-purple-700"
-              >紫色</span
-            >
-            <span
-              class="inline-flex rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
-              >灰色</span
-            >
-          </div>
         </div>
 
         <AppPagination

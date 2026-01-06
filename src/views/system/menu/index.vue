@@ -24,7 +24,6 @@ import {
   MenuCreateRequestSchema,
   MenuUpdateRequestSchema,
   type MenuCreateRequest,
-  type MenuQuery,
   type MenuUpdateRequest,
   type MenuVO,
 } from "@/schemas/system/menu"
@@ -57,19 +56,7 @@ interface MenuTreeRow {
 
 const notify = useNotifyStore()
 
-const statusFilter = ref<"" | "1" | "0">("")
-const statusOptions = [
-  { label: "全部状态", value: "" },
-  { label: "启用", value: "1" },
-  { label: "停用", value: "0" },
-]
-
-const menuQuery = computed<MenuQuery>(() => {
-  const status = statusFilter.value === "" ? undefined : Number(statusFilter.value)
-  return typeof status === "number" ? { status } : {}
-})
-
-const treeQuery = useMenuTreeQuery(menuQuery)
+const treeQuery = useMenuTreeQuery()
 const treeNodes = computed(() => treeQuery.data.value ?? [])
 const isTreeLoading = computed(() => treeQuery.isFetching.value)
 
@@ -80,10 +67,6 @@ const isDetailLoading = computed(() => detailQuery.isFetching.value)
 
 const mode = ref<PageMode>("create")
 const treeFilter = ref("")
-
-watch(statusFilter, () => {
-  startCreateRoot()
-})
 
 const DEFAULT_ICON = "radix-icons:dot-filled"
 
@@ -595,9 +578,6 @@ async function deleteMenuNode(menuId: number) {
             <div class="min-w-[200px] flex-1">
               <Input v-model="treeFilter" placeholder="搜索菜单名称..." />
             </div>
-            <div class="w-full sm:w-[160px]">
-              <Select v-model="statusFilter" :options="statusOptions" />
-            </div>
           </div>
           <div class="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" @click="expandAllMenus">
@@ -827,7 +807,7 @@ async function deleteMenuNode(menuId: number) {
             <div class="rounded-lg bg-muted/30 p-4">
               <div class="mb-3 text-[13px] font-semibold tracking-tight">高级配置</div>
 
-              <div class="grid gap-4 lg:grid-cols-3">
+              <div class="grid gap-4 lg:grid-cols-4">
                 <div class="grid gap-2">
                   <Label>是否外链</Label>
                   <div class="flex flex-wrap gap-4">
@@ -895,9 +875,7 @@ async function deleteMenuNode(menuId: number) {
                     </span>
                   </div>
                 </div>
-              </div>
 
-              <div class="mt-4 grid gap-4 lg:grid-cols-2">
                 <div class="grid gap-2">
                   <Label>菜单状态</Label>
                   <div class="flex flex-wrap gap-4">
@@ -921,15 +899,15 @@ async function deleteMenuNode(menuId: number) {
                     </label>
                   </div>
                 </div>
+              </div>
 
-                <div class="grid gap-2">
-                  <Label for="menu-queryParam">路由参数</Label>
-                  <Input
-                    id="menu-queryParam"
-                    v-model="form.queryParam"
-                    placeholder='例如：{"id":1}'
-                  />
-                </div>
+              <div class="mt-4 grid gap-2">
+                <Label for="menu-queryParam">路由参数</Label>
+                <Input
+                  id="menu-queryParam"
+                  v-model="form.queryParam"
+                  placeholder='例如：{"id":1}'
+                />
               </div>
             </div>
 

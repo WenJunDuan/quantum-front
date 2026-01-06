@@ -1,8 +1,4 @@
-import axios, {
-  type AxiosError,
-  type AxiosRequestConfig,
-  type InternalAxiosRequestConfig,
-} from "axios"
+import axios, { type AxiosError, type AxiosRequestConfig } from "axios"
 import queryString from "query-string"
 
 import { appConfig } from "@/config/app"
@@ -94,6 +90,67 @@ async function clearAuthState() {
   useUserStore().logout()
 }
 
+function readHeaderValue(headers: unknown, name: string): string | null {
+  if (!headers) return null
+
+  const lowerName = name.toLowerCase()
+  const record = headers as Record<string, unknown>
+
+  const axiosGet = (headers as { get?: (key: string) => unknown }).get
+  if (typeof axiosGet === "function") {
+    const value = axiosGet.call(headers, name) ?? axiosGet.call(headers, lowerName)
+    if (typeof value === "string") return value.trim() || null
+    if (Array.isArray(value)) {
+      const joined = value.filter((item): item is string => typeof item === "string").join(",")
+      return joined.trim() || null
+    }
+  }
+
+  const direct = record[name] ?? record[lowerName]
+  if (typeof direct === "string") return direct.trim() || null
+  if (Array.isArray(direct)) {
+    const joined = direct.filter((item): item is string => typeof item === "string").join(",")
+    return joined.trim() || null
+  }
+
+  return null
+}
+
+function parseBearerToken(value: string): string | null {
+  const trimmed = value.trim()
+  const match = /^\s*Bearer\s+(.+)\s*$/i.exec(trimmed)
+  if (!match) return null
+  const token = match[1]?.trim()
+  return token || null
+}
+
+function syncTokensFromHeaders(headers: unknown) {
+  const auth = readHeaderValue(headers, "Authorization")
+  const accessToken = auth ? parseBearerToken(auth) : null
+  const refreshToken = readHeaderValue(headers, "X-Refresh-Token")
+
+  if (!accessToken && !refreshToken) return
+
+  const userStore = useUserStore()
+  const currentAccessToken = userStore.accessToken
+  const currentRefreshToken = userStore.refreshToken
+
+  if (accessToken) {
+    userStore.setTokens({
+      accessToken,
+      refreshToken: refreshToken ?? currentRefreshToken ?? null,
+    })
+    return
+  }
+
+  if (refreshToken && currentAccessToken) {
+    userStore.setTokens({
+      accessToken: currentAccessToken,
+      refreshToken,
+    })
+  }
+}
+
 // ==================== Network Fail-safe ====================
 
 let isClearingAuthOnNetworkError = false
@@ -127,6 +184,7 @@ async function handleOfflineLogoutTimer(startedAt: number) {
 
   const userStore = useUserStore()
   const token = userStore.accessToken
+  const refreshToken = userStore.refreshToken
   if (
     !token ||
     consecutiveUnreachableAuthFailures === 0 ||
@@ -139,10 +197,15 @@ async function handleOfflineLogoutTimer(startedAt: number) {
   let logoutMessage = `服务不可用（离线超过 ${appConfig.logoutOnNetworkErrorMaxOfflineSeconds}s），登录状态已清除`
   try {
     const res = await axios.get<unknown>(`${appConfig.apiBaseUrl}/auth/info`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(refreshToken ? { "X-Refresh-Token": refreshToken } : {}),
+      },
       timeout: 8000,
       validateStatus: () => true,
     })
+
+    syncTokensFromHeaders(res.headers)
 
     const status = res.status
     const data = res.data
@@ -217,7 +280,7 @@ function shouldClearAuthByNetworkPolicy(now: number) {
   return { shouldClear: false as const }
 }
 
-async function maybeLogoutOnNetworkError(config?: InternalAxiosRequestConfig): Promise<boolean> {
+async function maybeLogoutOnNetworkError(config?: AxiosRequestConfig): Promise<boolean> {
   if (!appConfig.logoutOnNetworkError) return false
   if (!config) return false
 
@@ -274,179 +337,24 @@ async function maybeLogoutOnNetworkError(config?: InternalAxiosRequestConfig): P
   }
 }
 
-// ==================== Token 刷新 ====================
+// ==================== Unauthorized ====================
 
-let isRefreshing = false
-let refreshQueue: { resolve: (token: string) => void; reject: (error: unknown) => void }[] = []
-
-type RefreshTokenResult =
-  | { status: "success"; token: string }
-  | { status: "invalid" }
-  | { status: "transient"; error: unknown }
-
-function isInvalidRefreshResponse(status?: number, data?: unknown): boolean {
-  if (status === 401 || status === 403) return true
-  if (!isBackendEnvelope(data)) return false
-  return data.code === ResultCode.UNAUTHORIZED || data.code === ResultCode.ACCESS_DENIED
-}
-
-function toRefreshTransientError(error: unknown): ApiError {
-  if (error instanceof ApiError) return error
-  if (axios.isAxiosError(error)) {
-    if (!error.response) {
-      return new ApiError(ResultCode.SERVICE_UNAVAILABLE, "网络异常，刷新登录状态失败")
-    }
-    const status = error.response.status
-    const message = getDefaultResultMessage(status)
-    return new ApiError(status, message)
-  }
-  return new ApiError(ResultCode.SERVICE_UNAVAILABLE, "网络异常，刷新登录状态失败")
-}
-
-async function refreshToken(): Promise<RefreshTokenResult> {
-  const userStore = useUserStore()
-  const rt = userStore.refreshToken
-  if (!rt) return { status: "invalid" }
-
-  try {
-    const res = await axios.post<unknown>(`${appConfig.apiBaseUrl}/auth/refresh`, null, {
-      params: { refreshToken: rt },
-      timeout: 10_000,
-    })
-
-    const data = res.data
-    if (!isBackendEnvelope(data)) {
-      return {
-        status: "transient",
-        error: new ApiError(ResultCode.SERVICE_UNAVAILABLE, "刷新登录状态失败"),
-      }
-    }
-
-    if (data.code !== ResultCode.SUCCESS) {
-      if (data.code === ResultCode.UNAUTHORIZED || data.code === ResultCode.ACCESS_DENIED) {
-        return { status: "invalid" }
-      }
-      return {
-        status: "transient",
-        error: new ApiError(data.code, getEnvelopeMessage(data), getEnvelopeTraceId(data)),
-      }
-    }
-
-    const payload = unwrapEnvelopeData(data)
-    if (typeof payload !== "object" || payload === null) {
-      return {
-        status: "transient",
-        error: new ApiError(ResultCode.SERVICE_UNAVAILABLE, "刷新登录状态失败"),
-      }
-    }
-    const record = payload as Record<string, unknown>
-
-    const accessToken = typeof record.accessToken === "string" ? record.accessToken : null
-    if (!accessToken) {
-      return {
-        status: "transient",
-        error: new ApiError(ResultCode.SERVICE_UNAVAILABLE, "刷新登录状态失败"),
-      }
-    }
-
-    const refreshTokenValue =
-      typeof record.refreshToken === "string" && record.refreshToken.trim()
-        ? record.refreshToken
-        : rt
-
-    userStore.setTokens({ accessToken, refreshToken: refreshTokenValue })
-    return { status: "success", token: accessToken }
-  } catch (error: unknown) {
-    if (
-      axios.isAxiosError(error) &&
-      isInvalidRefreshResponse(error.response?.status, error.response?.data)
-    ) {
-      return { status: "invalid" }
-    }
-    return { status: "transient", error: toRefreshTransientError(error) }
-  }
-}
-
-type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean }
-
-function shouldRedirectOnUnauthorized(config: InternalAxiosRequestConfig) {
-  const meta = (config as RequestConfig).meta
+function shouldRedirectOnUnauthorized(config?: AxiosRequestConfig) {
+  const meta = (config as RequestConfig | undefined)?.meta
   return meta?.skipAuthRedirect !== true
 }
 
-function isAuthEndpoint(url: string) {
-  return (
-    url.includes("/auth/login") || url.includes("/auth/refresh") || url.includes("/auth/captcha")
-  )
-}
+async function handleUnauthorized(config: AxiosRequestConfig, message: string) {
+  const meta = (config as RequestConfig).meta
 
-function flushRefreshQueue(token: string | null, error?: unknown) {
-  const queue = refreshQueue
-  refreshQueue = []
-
-  for (const item of queue) {
-    if (token) item.resolve(token)
-    else item.reject(error ?? new ApiError(ResultCode.UNAUTHORIZED, "登录已过期"))
-  }
-}
-
-async function handleUnauthorized(config: RetryableRequestConfig): Promise<unknown> {
-  const url = config.url ?? ""
-
-  // 登录/刷新/验证码接口本身失败：不做刷新，直接当未登录处理
-  if (isAuthEndpoint(url)) {
-    await clearAuthState()
-    if (shouldRedirectOnUnauthorized(config)) redirectToLogin()
-    throw new ApiError(ResultCode.UNAUTHORIZED, "登录已过期")
+  // `skipAuth` 场景（如登录/验证码）不把 401 当作“登录过期”处理
+  if (meta?.skipAuth) {
+    throw new ApiError(ResultCode.UNAUTHORIZED, message)
   }
 
-  // 避免无限重试
-  if (config._retry) {
-    await clearAuthState()
-    if (shouldRedirectOnUnauthorized(config)) redirectToLogin()
-    throw new ApiError(ResultCode.UNAUTHORIZED, "登录已过期")
-  }
-  config._retry = true
-
-  // 正在刷新，排队等待
-  if (isRefreshing) {
-    const token = await new Promise<string>((resolve, reject) => {
-      refreshQueue.push({ resolve, reject })
-    })
-
-    config.headers["Authorization"] = `Bearer ${token}`
-    return instance.request(config)
-  }
-
-  // 开始刷新
-  isRefreshing = true
-  try {
-    const refreshResult = await refreshToken()
-
-    if (refreshResult.status === "invalid") {
-      const error = new ApiError(ResultCode.UNAUTHORIZED, "登录已过期")
-      flushRefreshQueue(null, error)
-      await clearAuthState()
-      if (shouldRedirectOnUnauthorized(config)) redirectToLogin()
-      throw error
-    }
-
-    if (refreshResult.status === "transient") {
-      flushRefreshQueue(null, refreshResult.error)
-      throw refreshResult.error
-    }
-
-    const newToken = refreshResult.token
-
-    // 通知排队的请求
-    flushRefreshQueue(newToken)
-
-    // 重试当前请求
-    config.headers["Authorization"] = `Bearer ${newToken}`
-    return instance.request(config)
-  } finally {
-    isRefreshing = false
-  }
+  await clearAuthState()
+  if (shouldRedirectOnUnauthorized(config)) redirectToLogin()
+  throw new ApiError(ResultCode.UNAUTHORIZED, message)
 }
 
 // ==================== Axios 实例 ====================
@@ -468,13 +376,35 @@ const instance = axios.create({
 instance.interceptors.request.use((config) => {
   const meta = (config as RequestConfig).meta
   if (meta?.skipAuth) {
-    config.headers.delete("Authorization")
+    const headers = config.headers as unknown as {
+      delete?: (key: string) => void
+      [key: string]: unknown
+    }
+
+    if (headers) {
+      if (typeof headers.delete === "function") {
+        headers.delete("Authorization")
+        headers.delete("X-Refresh-Token")
+      } else {
+        delete headers.Authorization
+        delete headers.authorization
+        delete headers["X-Refresh-Token"]
+        delete headers["x-refresh-token"]
+      }
+    }
     return config
   }
 
-  const token = useUserStore().accessToken
-  if (token && config.headers && !config.headers["Authorization"]) {
-    config.headers["Authorization"] = `Bearer ${token}`
+  const userStore = useUserStore()
+  const accessToken = userStore.accessToken
+  const refreshToken = userStore.refreshToken
+
+  if (accessToken && config.headers && !config.headers["Authorization"]) {
+    config.headers["Authorization"] = `Bearer ${accessToken}`
+  }
+
+  if (refreshToken && config.headers && !config.headers["X-Refresh-Token"]) {
+    config.headers["X-Refresh-Token"] = refreshToken
   }
 
   return config
@@ -484,6 +414,7 @@ instance.interceptors.request.use((config) => {
 instance.interceptors.response.use(
   (response) => {
     resetUnreachableAuthFailureState()
+    syncTokensFromHeaders(response.headers)
     const data = response.data
 
     // 非标准响应
@@ -494,7 +425,7 @@ instance.interceptors.response.use(
 
     // 401
     if (data.code === ResultCode.UNAUTHORIZED) {
-      return handleUnauthorized(response.config as RetryableRequestConfig)
+      return handleUnauthorized(response.config, getEnvelopeMessage(data))
     }
 
     // 业务错误
@@ -506,18 +437,22 @@ instance.interceptors.response.use(
     )
   },
   async (error: AxiosError<unknown>) => {
-    const config = error.config as RetryableRequestConfig | undefined
+    const config = error.config as AxiosRequestConfig | undefined
     const status = error.response?.status
     const data = error.response?.data
 
-    if (error.response) resetUnreachableAuthFailureState()
+    if (error.response) {
+      resetUnreachableAuthFailureState()
+      syncTokensFromHeaders(error.response.headers)
+    }
 
     // HTTP 401
     if (
       config &&
       (status === 401 || (isBackendEnvelope(data) && data.code === ResultCode.UNAUTHORIZED))
     ) {
-      return handleUnauthorized(config)
+      const message = isBackendEnvelope(data) ? getEnvelopeMessage(data) : "登录已过期"
+      return handleUnauthorized(config, message)
     }
 
     // 有业务响应

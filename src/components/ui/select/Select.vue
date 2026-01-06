@@ -105,7 +105,7 @@ const triggerClass = computed(() => {
 
 const contentClass = computed(() =>
   cn(
-    "absolute z-50 mt-2 w-full overflow-hidden rounded-lg border border-input bg-popover text-popover-foreground shadow-md",
+    "liquid-glass absolute z-50 mt-2 w-full overflow-hidden rounded-xl text-popover-foreground",
     props.size === "sm" ? "text-[12px]" : "text-[13px]",
   ),
 )

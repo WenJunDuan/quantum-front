@@ -151,7 +151,7 @@ function isActive(targetPath: string) {
               v-if="item.icon"
               :icon="item.icon"
               class="h-4 w-4"
-              :class="[isActive(item.fullPath) ? 'text-foreground' : 'text-muted-foreground']"
+              :class="[isActive(item.fullPath) ? 'text-primary' : 'text-muted-foreground']"
             />
             <span v-if="!collapsed" class="truncate">{{ item.title }}</span>
             <span v-else class="sr-only">{{ item.title }}</span>
@@ -183,7 +183,7 @@ function isActive(targetPath: string) {
               v-if="item.icon"
               :icon="item.icon"
               class="h-4 w-4"
-              :class="[isActive(item.fullPath) ? 'text-foreground' : 'text-muted-foreground']"
+              :class="[isActive(item.fullPath) ? 'text-primary' : 'text-muted-foreground']"
             />
             <span v-if="!collapsed" class="truncate">{{ item.title }}</span>
             <span v-else class="sr-only">{{ item.title }}</span>

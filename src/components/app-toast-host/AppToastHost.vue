@@ -41,12 +41,7 @@ function toastClass(item: NotifyItem) {
       <div
         v-for="item in items"
         :key="item.id"
-        :class="
-          cn(
-            'flex items-start gap-3 rounded-lg border bg-background/75 p-3 shadow-lg backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-background/65',
-            toastClass(item),
-          )
-        "
+        :class="cn('liquid-glass flex items-start gap-3 rounded-lg p-3', toastClass(item))"
         role="status"
       >
         <AppIcon :icon="toastIcon(item)" class="mt-0.5 size-4 text-muted-foreground" />

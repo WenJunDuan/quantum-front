@@ -11,7 +11,6 @@ import type { RoleQuery, RoleUpdateRequest, RoleVO } from "@/schemas/system/role
 import { computed, reactive, ref, watch } from "vue"
 
 import AppIcon from "@/components/app-icon"
-import AppPagination from "@/components/app-pagination"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -26,8 +25,6 @@ function isKeyLike(value: string) {
 }
 
 const roleKeyword = ref("")
-const rolePageNum = ref(1)
-const rolePageSize = ref(10)
 const notify = useNotifyStore()
 
 const roleQuery = computed<RoleQuery>(() => {
@@ -35,20 +32,14 @@ const roleQuery = computed<RoleQuery>(() => {
   const keyLike = keyword && isKeyLike(keyword)
 
   return {
-    pageNum: rolePageNum.value,
-    pageSize: rolePageSize.value,
+    pageNum: 1,
+    pageSize: 200,
     ...(keyword ? (keyLike ? { roleKey: keyword } : { roleName: keyword }) : {}),
   }
 })
 
-watch(roleKeyword, () => {
-  rolePageNum.value = 1
-})
-
 const rolePageQuery = useRolePageQuery(roleQuery)
 const roleRows = computed(() => rolePageQuery.data.value?.records ?? [])
-const totalRoles = computed(() => rolePageQuery.data.value?.total ?? 0)
-const totalRolePages = computed(() => rolePageQuery.data.value?.pages ?? 0)
 
 const selectedRoleId = ref<number | null>(null)
 
@@ -351,18 +342,6 @@ const permissionRows = computed<PermissionRow[]>(() => {
             </li>
           </ul>
         </CardContent>
-
-        <CardContent class="border-t !p-3">
-          <AppPagination
-            :total="totalRoles"
-            :pages="totalRolePages"
-            :page-num="rolePageNum"
-            :page-size="rolePageSize"
-            :disabled="rolePageQuery.isFetching.value"
-            @update:page-num="rolePageNum = $event"
-            @update:page-size="rolePageSize = $event"
-          />
-        </CardContent>
       </Card>
 
       <Card class="overflow-hidden">
@@ -416,10 +395,6 @@ const permissionRows = computed<PermissionRow[]>(() => {
                   <span class="text-foreground">{{
                     toDateTimeText(selectedRole?.updateTime)
                   }}</span>
-                </div>
-                <div class="flex items-center gap-3">
-                  <span class="text-[12px] text-muted-foreground">关联用户</span>
-                  <span class="text-primary">{{ selectedRole ? "—" : "—" }}</span>
                 </div>
               </div>
             </div>

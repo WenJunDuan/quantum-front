@@ -19,14 +19,10 @@ import { storeToRefs } from "pinia"
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue"
 import { RouterLink, useRoute, useRouter } from "vue-router"
 
-import { logout as apiLogout } from "@/api/auth"
-import defaultAvatar from "@/assets/default.jpeg"
 import AppIcon from "@/components/app-icon"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { type AccentColorKey, useAppAccentColor } from "@/composables/useAppAccentColor"
-import { useAppColorMode } from "@/composables/useAppColorMode"
 import { appConfig } from "@/config/app"
 import { useNotifyStore } from "@/stores/notify"
 import { useTabsStore } from "@/stores/tabs"
@@ -47,81 +43,14 @@ const notify = useNotifyStore()
 const userStore = useUserStore()
 const tabsStore = useTabsStore()
 
-const { profile, routers } = storeToRefs(userStore)
+const { routers } = storeToRefs(userStore)
 const { tabs: openedTabs, activeKey: activeTabKey, enabled: tabsEnabled } = storeToRefs(tabsStore)
 
-const { isDark, preference, toggleColorMode } = useAppColorMode()
-const {
-  accentKey,
-  customColor,
-  options: accentOptions,
-  setAccentKey,
-  setCustomColor,
-} = useAppAccentColor()
-
-const isLoggingOut = ref(false)
-
 // ========== Search palette ==========
-
-const CUSTOM_SWATCH_GRADIENT =
-  "conic-gradient(from 180deg, #FF3B30, #FF9500, #FFCC00, #34C759, #32ADE6, #5856D6, #AF52DE, #FF2D55, #FF3B30)"
 
 const isSearchOpen = ref(false)
 const searchQuery = ref("")
 const searchPanelRef = ref<HTMLDivElement | null>(null)
-
-const isUserMenuOpen = ref(false)
-const userMenuButtonRef = ref<HTMLButtonElement | null>(null)
-const userMenuPanelRef = ref<HTMLDivElement | null>(null)
-
-const avatarLoadFailed = ref(false)
-
-const displayName = computed(() => profile.value?.nickname ?? profile.value?.username ?? "用户")
-const userSubline = computed(() => profile.value?.email ?? profile.value?.username ?? "")
-
-const accentLabel = computed(() => {
-  if (accentKey.value === "custom") return customColor.value
-  return accentOptions.find((option) => option.key === accentKey.value)?.label ?? ""
-})
-
-const avatarSrc = computed(() => {
-  if (avatarLoadFailed.value) return defaultAvatar
-  const value = profile.value?.avatar?.trim()
-  return value || defaultAvatar
-})
-
-watch(
-  () => profile.value?.avatar,
-  () => {
-    avatarLoadFailed.value = false
-  },
-)
-
-function onAvatarError() {
-  avatarLoadFailed.value = true
-}
-
-function onAccentOptionClick(key: AccentColorKey, event: MouseEvent) {
-  if (key !== "custom") {
-    setAccentKey(key)
-    return
-  }
-
-  setAccentKey("custom")
-
-  const button = event.currentTarget as HTMLElement | null
-  const input = button?.querySelector("input[type='color']") as HTMLInputElement | null
-  input?.click()
-}
-
-function onCustomAccentInput(event: Event) {
-  const input = event.target as HTMLInputElement | null
-  const value = input?.value
-  if (typeof value !== "string") return
-
-  setAccentKey("custom")
-  setCustomColor(value)
-}
 
 const pageTitle = computed(() => {
   if (typeof route.meta.title === "string" && route.meta.title.trim()) return route.meta.title
@@ -160,14 +89,6 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
   if (items.length === 0) return [{ label: "首页" }]
   return items.map((item, index) => (index === items.length - 1 ? { label: item.label } : item))
 })
-
-function toggleUserMenu() {
-  isUserMenuOpen.value = !isUserMenuOpen.value
-}
-
-function closeUserMenu() {
-  isUserMenuOpen.value = false
-}
 
 interface SearchItem {
   key: string
@@ -268,7 +189,6 @@ function closeSearchPalette() {
 
 async function openSearchPalette() {
   isSearchOpen.value = true
-  closeUserMenu()
   closeTabMenu()
 
   await nextTick()
@@ -317,74 +237,6 @@ function joinMenuPath(parent: string, child: string) {
   const base = parent.replace(/\/+$/, "")
   const seg = normalizePathSegment(childTrimmed)
   return base ? `${base}/${seg}` : `/${seg}`
-}
-
-function findProfilePath(items: unknown, parentPath = ""): string | null {
-  if (!Array.isArray(items)) return null
-
-  for (const raw of items) {
-    const item = raw as MenuLike
-    if (item?.hidden === true) continue
-
-    const title = typeof item?.meta?.title === "string" ? item.meta.title.trim() : ""
-    const name = typeof item?.name === "string" ? item.name.trim() : ""
-    const path = typeof item?.path === "string" ? item.path.trim() : ""
-
-    const fullPath = joinMenuPath(parentPath, path)
-    const hit =
-      /个人信息|个人资料|个人中心|我的信息|账号信息|profile|account/i.test(title) ||
-      /个人信息|个人资料|个人中心|我的信息|账号信息|profile|account/i.test(name) ||
-      /(profile|account|personal|me|mine|center|userinfo|user-info)/i.test(fullPath)
-    if (hit && fullPath && fullPath !== "/") return fullPath
-
-    const children = item?.children
-    const childHit = findProfilePath(children, fullPath)
-    if (childHit) return childHit
-  }
-
-  return null
-}
-
-const profilePath = computed(() => findProfilePath(routers.value))
-
-function openProfile() {
-  const target = profilePath.value || "/user/profile"
-  closeUserMenu()
-  void router.push(target)
-}
-
-function toggleThemeFromMenu() {
-  toggleColorMode()
-  closeUserMenu()
-}
-
-function toggleTabsFromMenu() {
-  tabsStore.setEnabled(!tabsEnabled.value)
-  closeUserMenu()
-}
-
-function swatchColor(light: string, dark: string) {
-  return isDark.value ? dark : light
-}
-
-async function logoutFromMenu() {
-  closeUserMenu()
-  await logout()
-}
-
-async function logout() {
-  if (isLoggingOut.value) return
-  isLoggingOut.value = true
-
-  try {
-    await apiLogout()
-  } catch (error) {
-    console.warn("[Logout] API call failed:", error)
-  } finally {
-    userStore.logout()
-    isLoggingOut.value = false
-    router.replace({ name: "login" })
-  }
 }
 
 // ========== Fullscreen ==========
@@ -543,12 +395,6 @@ function onDocumentPointerDown(event: PointerEvent) {
   const target = event.target as Node | null
   if (!target) return
 
-  if (isUserMenuOpen.value) {
-    const button = userMenuButtonRef.value
-    const panel = userMenuPanelRef.value
-    if (!button?.contains(target) && !panel?.contains(target)) closeUserMenu()
-  }
-
   if (tabMenuOpen.value) {
     const button = tabActionsButtonRef.value
     const panel = tabMenuPanelRef.value
@@ -578,7 +424,6 @@ function onDocumentKeyDown(event: KeyboardEvent) {
   }
 
   if (event.key !== "Escape") return
-  closeUserMenu()
   closeTabMenu()
   closeSearchPalette()
 }
@@ -587,7 +432,6 @@ watch(
   () => route.fullPath,
   () => {
     tabsStore.openFromRoute(route)
-    closeUserMenu()
     closeTabMenu()
     closeSearchPalette()
   },
@@ -702,155 +546,6 @@ onUnmounted(() => {
               class="h-4 w-4"
             />
           </Button>
-
-          <!-- 用户菜单 -->
-          <div class="relative">
-            <button
-              ref="userMenuButtonRef"
-              type="button"
-              class="flex h-9 items-center gap-2 rounded-md px-2 text-sm font-medium transition-colors hover:bg-accent"
-              aria-label="User menu"
-              aria-haspopup="menu"
-              :aria-expanded="isUserMenuOpen"
-              @click="toggleUserMenu"
-            >
-              <img
-                :src="avatarSrc"
-                alt="Avatar"
-                class="h-7 w-7 rounded-full object-cover"
-                @error="onAvatarError"
-              />
-              <span class="hidden max-w-[8rem] truncate sm:block">{{ displayName }}</span>
-              <AppIcon icon="radix-icons:chevron-down" class="h-4 w-4 text-muted-foreground" />
-            </button>
-
-            <!-- 用户下拉面板 -->
-            <Transition
-              enter-active-class="transition duration-150 ease-out"
-              leave-active-class="transition duration-100 ease-in"
-              enter-from-class="opacity-0 scale-95"
-              enter-to-class="opacity-100 scale-100"
-              leave-from-class="opacity-100 scale-100"
-              leave-to-class="opacity-0 scale-95"
-            >
-              <div
-                v-show="isUserMenuOpen"
-                ref="userMenuPanelRef"
-                class="absolute top-[calc(100%+0.25rem)] right-0 z-50 w-56 origin-top-right rounded-md border bg-popover p-1 shadow-md"
-                role="menu"
-              >
-                <!-- 用户信息 -->
-                <div class="flex items-center gap-3 px-2 py-2">
-                  <img
-                    :src="avatarSrc"
-                    alt="Avatar"
-                    class="h-9 w-9 rounded-full object-cover"
-                    @error="onAvatarError"
-                  />
-                  <div class="min-w-0">
-                    <div class="truncate text-sm font-medium">{{ displayName }}</div>
-                    <div class="truncate text-xs text-muted-foreground">{{ userSubline }}</div>
-                  </div>
-                </div>
-
-                <Separator class="my-1" />
-
-                <!-- 主题设置 -->
-                <div class="px-2 py-1 text-xs font-medium text-muted-foreground">主题设置</div>
-
-                <button
-                  type="button"
-                  class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent"
-                  role="menuitem"
-                  @click="toggleThemeFromMenu"
-                >
-                  <AppIcon
-                    :icon="isDark ? 'radix-icons:sun' : 'radix-icons:moon'"
-                    class="h-4 w-4 text-muted-foreground"
-                  />
-                  <span>主题</span>
-                  <span class="ml-auto text-xs text-muted-foreground">
-                    {{ preference === "auto" ? "自动" : isDark ? "深色" : "浅色" }}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent"
-                  role="menuitem"
-                  @click="toggleTabsFromMenu"
-                >
-                  <AppIcon icon="radix-icons:stack" class="h-4 w-4 text-muted-foreground" />
-                  <span>标签页</span>
-                  <span class="ml-auto text-xs text-muted-foreground">{{
-                    tabsEnabled ? "开启" : "关闭"
-                  }}</span>
-                </button>
-
-                <!-- 主题色选择 -->
-                <div class="px-2 pt-2 pb-1">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-medium text-muted-foreground">主题色</span>
-                    <span class="text-xs text-muted-foreground">{{ accentLabel }}</span>
-                  </div>
-                  <div class="mt-2 grid grid-cols-5 gap-1.5">
-                    <button
-                      v-for="option in accentOptions"
-                      :key="option.key"
-                      type="button"
-                      class="relative grid h-8 w-8 place-items-center rounded-md ring-1 ring-border transition-colors hover:ring-2 hover:ring-ring"
-                      :class="[option.key === accentKey ? 'ring-2 ring-ring' : '']"
-                      :aria-label="
-                        option.key === 'custom' ? '自定义主题色' : `主题色：${option.label}`
-                      "
-                      @click="onAccentOptionClick(option.key, $event)"
-                    >
-                      <input
-                        v-if="option.key === 'custom'"
-                        type="color"
-                        class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                        :value="customColor"
-                        aria-label="自定义主题色"
-                        @click.stop="setAccentKey('custom')"
-                        @input="onCustomAccentInput"
-                      />
-                      <span
-                        class="h-4 w-4 rounded-full ring-1 ring-border"
-                        :style="
-                          option.key === 'custom'
-                            ? { backgroundImage: CUSTOM_SWATCH_GRADIENT }
-                            : { backgroundColor: swatchColor(option.light, option.dark) }
-                        "
-                      />
-                    </button>
-                  </div>
-                </div>
-
-                <Separator class="my-1" />
-
-                <button
-                  type="button"
-                  class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent"
-                  role="menuitem"
-                  @click="openProfile"
-                >
-                  <AppIcon icon="radix-icons:person" class="h-4 w-4 text-muted-foreground" />
-                  <span>个人信息</span>
-                </button>
-
-                <button
-                  type="button"
-                  class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent disabled:opacity-50"
-                  role="menuitem"
-                  :disabled="isLoggingOut"
-                  @click="logoutFromMenu"
-                >
-                  <AppIcon icon="radix-icons:exit" class="h-4 w-4 text-muted-foreground" />
-                  <span>{{ isLoggingOut ? "退出中..." : "退出登录" }}</span>
-                </button>
-              </div>
-            </Transition>
-          </div>
         </div>
       </div>
     </header>
@@ -899,19 +594,18 @@ onUnmounted(() => {
         </div>
 
         <!-- 选项卡操作按钮 -->
-        <Button
+        <button
           ref="tabActionsButtonRef"
-          variant="ghost"
-          size="icon"
-          class="h-8 w-8 shrink-0"
-          :class="[tabMenuOpen ? 'bg-accent' : '']"
+          type="button"
+          class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          :class="[tabMenuOpen ? 'bg-accent text-foreground' : '']"
           aria-label="Tab actions"
           @click="toggleTabActionsMenu($event)"
           @pointerenter="onTabActionsPointerEnter($event)"
           @pointerleave="onTabActionsPointerLeave"
         >
           <AppIcon icon="radix-icons:dots-horizontal" class="h-4 w-4" />
-        </Button>
+        </button>
       </div>
     </div>
   </div>
@@ -928,7 +622,7 @@ onUnmounted(() => {
     <div
       v-show="tabMenuOpen"
       ref="tabMenuPanelRef"
-      class="fixed z-[60] w-40 origin-top-left rounded-md border bg-popover p-1 shadow-md"
+      class="liquid-glass fixed z-[60] w-40 origin-top-left rounded-xl p-1"
       role="menu"
       :style="{ left: `${tabMenuX}px`, top: `${tabMenuY}px` }"
       @pointerenter="clearTabMenuCloseTimer"
@@ -1002,7 +696,7 @@ onUnmounted(() => {
           <div
             v-show="isSearchOpen"
             ref="searchPanelRef"
-            class="overflow-hidden rounded-lg border bg-popover shadow-lg"
+            class="liquid-glass overflow-hidden rounded-xl"
             role="dialog"
             aria-label="Search"
           >

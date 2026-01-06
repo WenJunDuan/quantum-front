@@ -71,7 +71,7 @@ onBeforeUnmount(() => {
         >
           <div
             v-if="active"
-            class="w-full max-w-md rounded-lg border bg-background/80 p-4 shadow-xl backdrop-blur-xl will-change-transform"
+            class="liquid-glass w-full max-w-md rounded-2xl p-4 will-change-transform"
           >
             <div class="text-base font-semibold">{{ active.title }}</div>
             <p class="mt-2 text-sm break-words whitespace-pre-wrap text-muted-foreground">

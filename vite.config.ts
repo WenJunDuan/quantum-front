@@ -73,6 +73,13 @@ export default defineConfig(({ mode }) => {
               if (typeof auth === "string" && auth.trim()) {
                 proxyReq.setHeader("authorization", auth)
               }
+
+              const refresh = (req.headers as Record<string, unknown> | undefined)?.[
+                "x-refresh-token"
+              ]
+              if (typeof refresh === "string" && refresh.trim()) {
+                proxyReq.setHeader("x-refresh-token", refresh)
+              }
             })
           },
           rewrite: (path) => path.replace(/^\/api/, ""),

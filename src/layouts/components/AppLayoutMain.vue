@@ -13,7 +13,7 @@ const tabsStore = useTabsStore()
 </script>
 
 <template>
-  <main class="min-h-0 flex-1 overflow-auto bg-background p-3">
+  <main class="min-h-0 flex-1 overflow-auto bg-content p-3">
     <div class="min-h-full rounded-xl bg-card p-4">
       <RouterView v-slot="{ Component, route: viewRoute }">
         <component
